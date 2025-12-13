@@ -281,7 +281,7 @@ function App() {
       case 'dashboard':
         return <Dashboard trades={trades} stats={stats} />
       case 'charts':
-        return <Charts />
+        return <Charts trades={trades} />  // ← Add trades prop here
       case 'calendar':
         return <Calendar />
       case 'trades':
