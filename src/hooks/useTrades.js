@@ -50,7 +50,51 @@ export const useTrades = () => {
     }
   };
 
-  return { trades, loading, error, refetch: fetchTrades };
+  const updateTrade = async (tradeId, updatedData) => {
+    try {
+      const { data, error: updateError } = await supabase
+        .from('trades')
+        .update(updatedData)
+        .eq('id', tradeId)
+        .select();
+
+      if (updateError) throw updateError;
+
+      // Refresh trades after update
+      await fetchTrades();
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error updating trade:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteTrade = async (tradeId) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('trades')
+        .delete()
+        .eq('id', tradeId);
+
+      if (deleteError) throw deleteError;
+
+      // Refresh trades after delete
+      await fetchTrades();
+      return { success: true };
+    } catch (err) {
+      console.error('Error deleting trade:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  return { 
+    trades, 
+    loading, 
+    error, 
+    refetch: fetchTrades,
+    updateTrade,
+    deleteTrade
+  };
 };
 
 export const useAccount = () => {

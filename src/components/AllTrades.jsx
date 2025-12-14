@@ -1,278 +1,218 @@
 import { useState, useMemo } from 'react'
-import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import EditTradeModal from './EditTradeModal'
+import DeleteConfirmModal from './DeleteConfirmModal'
 
-function AllTrades({ trades }) {
-  // Filter states
-  const [dateFilter, setDateFilter] = useState('all')
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
-  const [tickerSearch, setTickerSearch] = useState('')
-  const [qualityFilter, setQualityFilter] = useState('all')
-  const [setupTypeFilter, setSetupTypeFilter] = useState('all')
-  
-  // Modal state
+const AllTrades = ({ trades, onUpdate, onDelete }) => {
   const [selectedTrade, setSelectedTrade] = useState(null)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // Get unique values for dropdown options
-  const uniqueSetupTypes = useMemo(() => {
-    return ['all', ...new Set(trades.map(t => t.setup_type))].sort()
-  }, [trades])
+  // Filter states
+  const [filters, setFilters] = useState({
+    ticker: '',
+    startDate: '',
+    endDate: '',
+    setupQuality: '',
+    strategy: '',
+    winLoss: ''
+  })
 
-  // Filter trades based on all selected filters
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Filter trades based on current filters
   const filteredTrades = useMemo(() => {
-    let filtered = trades
-
-    // Date filter
-    if (dateFilter !== 'all') {
-      const now = new Date()
-      let startDate, endDate
-
-      switch (dateFilter) {
-        case 'today':
-          startDate = startOfDay(now)
-          endDate = endOfDay(now)
-          break
-        
-        case 'week':
-          startDate = startOfWeek(now, { weekStartsOn: 1 })
-          endDate = endOfWeek(now, { weekStartsOn: 1 })
-          break
-        
-        case 'custom':
-          if (customStartDate && customEndDate) {
-            startDate = startOfDay(parseISO(customStartDate))
-            endDate = endOfDay(parseISO(customEndDate))
-          }
-          break
+    return trades.filter(trade => {
+      if (filters.ticker && !trade.ticker.toLowerCase().includes(filters.ticker.toLowerCase())) {
+        return false
       }
-
-      if (startDate && endDate) {
-        filtered = filtered.filter(trade => {
-          const tradeDate = parseISO(trade.trade_date)
-          return isWithinInterval(tradeDate, { start: startDate, end: endDate })
-        })
+      if (filters.startDate && trade.trade_date < filters.startDate) {
+        return false
       }
-    }
+      if (filters.endDate && trade.trade_date > filters.endDate) {
+        return false
+      }
+      if (filters.setupQuality && trade.setup_quality !== filters.setupQuality) {
+        return false
+      }
+      if (filters.strategy && trade.strategy !== filters.strategy) {
+        return false
+      }
+      if (filters.winLoss && trade.win_loss !== filters.winLoss) {
+        return false
+      }
+      return true
+    })
+  }, [trades, filters])
 
-    // Ticker search filter
-    if (tickerSearch.trim() !== '') {
-      filtered = filtered.filter(t =>
-        t.ticker.toLowerCase().includes(tickerSearch.toLowerCase())
-      )
-    }
-
-    // Quality filter
-    if (qualityFilter !== 'all') {
-      filtered = filtered.filter(t => t.setup_quality === qualityFilter)
-    }
-
-    // Setup Type filter
-    if (setupTypeFilter !== 'all') {
-      filtered = filtered.filter(t => t.setup_type === setupTypeFilter)
-    }
-
-    return filtered
-  }, [trades, dateFilter, customStartDate, customEndDate, tickerSearch, qualityFilter, setupTypeFilter])
-
-  // Calculate filtered stats
-  const filteredStats = useMemo(() => {
-    const totalPL = filteredTrades.reduce((sum, t) => sum + t.profit_loss, 0)
-    const wins = filteredTrades.filter(t => t.profit_loss > 0).length
-    const losses = filteredTrades.filter(t => t.profit_loss < 0).length
-    const winRate = filteredTrades.length > 0 ? (wins / filteredTrades.length) * 100 : 0
-
-    return { totalPL, wins, losses, winRate, count: filteredTrades.length }
-  }, [filteredTrades])
-
-  // Reset all filters
-  const resetFilters = () => {
-    setDateFilter('all')
-    setCustomStartDate('')
-    setCustomEndDate('')
-    setTickerSearch('')
-    setQualityFilter('all')
-    setSetupTypeFilter('all')
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target
+    setFilters(prev => ({ ...prev, [name]: value }))
   }
 
-  // Check if any filters are active
-  const hasActiveFilters = dateFilter !== 'all' || tickerSearch !== '' ||
-    qualityFilter !== 'all' || setupTypeFilter !== 'all'
+  const resetFilters = () => {
+    setFilters({
+      ticker: '',
+      startDate: '',
+      endDate: '',
+      setupQuality: '',
+      strategy: '',
+      winLoss: ''
+    })
+  }
 
-  // Open trade modal
   const openTradeModal = (trade) => {
     setSelectedTrade(trade)
+    setIsDetailModalOpen(true)
   }
 
-  // Close trade modal
   const closeTradeModal = () => {
+    setIsDetailModalOpen(false)
     setSelectedTrade(null)
   }
 
+  const openEditModal = (trade) => {
+    setSelectedTrade(trade)
+    setIsDetailModalOpen(false)
+    setIsEditModalOpen(true)
+  }
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false)
+    setSelectedTrade(null)
+  }
+
+  const openDeleteModal = (trade) => {
+    setSelectedTrade(trade)
+    setIsDetailModalOpen(false)
+    setIsDeleteModalOpen(true)
+  }
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setSelectedTrade(null)
+  }
+
+  const handleDelete = async () => {
+    if (!selectedTrade) return
+
+    setDeleteLoading(true)
+    const result = await onDelete(selectedTrade.id)
+    setDeleteLoading(false)
+
+    if (result.success) {
+      closeDeleteModal()
+    } else {
+      alert('Error deleting trade: ' + result.error)
+    }
+  }
+
+  // Get unique values for filter dropdowns
+  const uniqueStrategies = [...new Set(trades.map(t => t.strategy).filter(Boolean))]
+
   return (
     <div className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-8">Complete Trade Log</h2>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white mb-2">All Trades</h2>
+          <p className="text-gray-400">
+            Showing {filteredTrades.length} of {trades.length} trades
+          </p>
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="px-6 py-2 bg-[#1a1a1a] border border-gray-700 text-white rounded-lg font-semibold hover:bg-[#2a2a2a] transition-colors"
+        >
+          {showFilters ? '✕ Hide Filters' : '🔍 Show Filters'}
+        </button>
+      </div>
 
-      {/* Filters Section */}
-      <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 mb-6 border border-gray-800">
-        <div className="flex flex-col gap-4">
-          {/* Filter Header */}
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-gray-400">Filters</span>
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                className="px-4 py-2 text-[#a4fc3c] text-sm hover:text-white transition-colors"
-              >
-                ✕ Clear All Filters
-              </button>
-            )}
-          </div>
-
-          {/* Filter Dropdowns Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Date Range */}
+      {/* Filters */}
+      {showFilters && (
+        <div className="bg-[#1a1a1a] rounded-xl p-6 mb-6 border border-gray-800">
+          <h3 className="text-lg font-semibold text-white mb-4">Filters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Date Range</label>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23a4fc3c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem'
-                }}
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="custom">Custom Range</option>
-              </select>
-            </div>
-
-            {/* Ticker Search */}
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Search Ticker</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Ticker</label>
               <input
                 type="text"
-                placeholder="Enter ticker..."
-                value={tickerSearch}
-                onChange={(e) => setTickerSearch(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors placeholder-gray-600"
+                name="ticker"
+                value={filters.ticker}
+                onChange={handleFilterChange}
+                placeholder="AAPL"
+                className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
               />
             </div>
 
-            {/* Setup Quality */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Quality</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Start Date</label>
+              <input
+                type="date"
+                name="startDate"
+                value={filters.startDate}
+                onChange={handleFilterChange}
+                className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">End Date</label>
+              <input
+                type="date"
+                name="endDate"
+                value={filters.endDate}
+                onChange={handleFilterChange}
+                className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Setup Quality</label>
               <select
-                value={qualityFilter}
-                onChange={(e) => setQualityFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23a4fc3c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem'
-                }}
+                name="setupQuality"
+                value={filters.setupQuality}
+                onChange={handleFilterChange}
+                className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
               >
-                <option value="all">All Grades</option>
-                <option value="A">A Grade</option>
-                <option value="B">B Grade</option>
-                <option value="C">C Grade</option>
+                <option value="">All Grades</option>
+                <option value="A">A - Excellent</option>
+                <option value="B">B - Good</option>
+                <option value="C">C - Poor</option>
               </select>
             </div>
 
-            {/* Setup Type */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Setup Type</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Strategy</label>
               <select
-                value={setupTypeFilter}
-                onChange={(e) => setSetupTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23a4fc3c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem'
-                }}
+                name="strategy"
+                value={filters.strategy}
+                onChange={handleFilterChange}
+                className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
               >
-                {uniqueSetupTypes.map(type => (
-                  <option key={type} value={type}>
-                    {type === 'all' ? 'All Setups' : type}
-                  </option>
+                <option value="">All Strategies</option>
+                {uniqueStrategies.map(strategy => (
+                  <option key={strategy} value={strategy}>{strategy}</option>
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Custom Date Range Inputs */}
-          {dateFilter === 'custom' && (
-            <div className="flex gap-4 items-center pt-2 border-t border-gray-800">
-              <span className="text-sm text-gray-400">Custom Range:</span>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-500">From:</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-500">To:</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Filter Stats Summary */}
-          <div className="flex gap-6 items-center pt-4 border-t border-gray-800 flex-wrap">
-            <div className="text-sm">
-              <span className="text-gray-400">Showing:</span>
-              <span className="text-white font-semibold ml-2">{filteredStats.count} trades</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-gray-400">Total P/L:</span>
-              <span className={`font-semibold ml-2 ${
-                filteredStats.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
-              }`}>
-                {filteredStats.totalPL >= 0 ? '+' : ''}${filteredStats.totalPL.toFixed(2)}
-              </span>
-            </div>
-            <div className="text-sm">
-              <span className="text-gray-400">Win Rate:</span>
-              <span className="text-white font-semibold ml-2">
-                {filteredStats.winRate.toFixed(1)}%
-              </span>
-            </div>
-            <div className="text-sm">
-              <span className="text-gray-400">W/L:</span>
-              <span className="text-white font-semibold ml-2">
-                {filteredStats.wins}W / {filteredStats.losses}L
-              </span>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Result</label>
+              <select
+                name="winLoss"
+                value={filters.winLoss}
+                onChange={handleFilterChange}
+                className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+              >
+                <option value="">All Results</option>
+                <option value="W">Winners</option>
+                <option value="L">Losers</option>
+              </select>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* No Results Message */}
-      {filteredTrades.length === 0 && (
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-12 text-center border border-gray-800">
-          <div className="text-6xl mb-4">📭</div>
-          <h3 className="text-xl font-bold text-white mb-2">No Trades Found</h3>
-          <p className="text-gray-400">
-            No trades match the selected filters.
-          </p>
           <button
             onClick={resetFilters}
             className="mt-4 px-6 py-2 bg-[#a4fc3c] text-black rounded-lg font-semibold hover:bg-[#8fdd2f] transition-colors"
@@ -283,7 +223,7 @@ function AllTrades({ trades }) {
       )}
 
       {/* Trade Table */}
-      {filteredTrades.length > 0 && (
+      {filteredTrades.length > 0 ? (
         <div className="bg-[#1a1a1a] rounded-xl shadow-lg overflow-hidden border border-gray-800">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -297,7 +237,6 @@ function AllTrades({ trades }) {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">P/L</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Quality</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Setup</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Notes</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Actions</th>
                 </tr>
               </thead>
@@ -305,53 +244,91 @@ function AllTrades({ trades }) {
                 {filteredTrades.map((trade, idx) => (
                   <tr
                     key={trade.id}
-                    onClick={() => openTradeModal(trade)}
-                    className={`${idx % 2 === 0 ? 'bg-[#1a1a1a]' : 'bg-[#0a0a0a]'} hover:bg-[#2a2a2a] cursor-pointer transition-colors`}
+                    className={`${idx % 2 === 0 ? 'bg-[#1a1a1a]' : 'bg-[#0a0a0a]'} hover:bg-[#2a2a2a] transition-colors`}
                   >
-                    <td className="px-4 py-3 text-sm text-gray-300">
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm text-gray-300 cursor-pointer"
+                    >
                       {format(parseISO(trade.trade_date), 'MMM d, yyyy')}
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-white">{trade.ticker}</td>
-                    <td className="px-4 py-3 text-sm text-gray-300">${trade.entry_price.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-300">${trade.exit_price.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-300">{trade.shares}</td>
-                    <td className={`px-4 py-3 text-sm font-semibold ${
-                      trade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
-                    }`}>
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm font-semibold text-white cursor-pointer"
+                    >
+                      {trade.ticker}
+                    </td>
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm text-gray-300 cursor-pointer"
+                    >
+                      ${trade.entry_price.toFixed(2)}
+                    </td>
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm text-gray-300 cursor-pointer"
+                    >
+                      ${trade.exit_price.toFixed(2)}
+                    </td>
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm text-gray-300 cursor-pointer"
+                    >
+                      {trade.shares}
+                    </td>
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className={`px-4 py-3 text-sm font-semibold cursor-pointer ${
+                        trade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+                      }`}
+                    >
                       {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm cursor-pointer"
+                    >
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
                         trade.setup_quality === 'A' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' :
                         trade.setup_quality === 'B' ? 'bg-yellow-500/20 text-yellow-400' :
                         'bg-red-500/20 text-red-400'
                       }`}>
-                        {trade.setup_quality}
+                        {trade.setup_quality || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-300">{trade.setup_type}</td>
-                    <td className="px-4 py-3 text-sm max-w-xs truncate text-gray-400">{trade.notes}</td>
+                    <td 
+                      onClick={() => openTradeModal(trade)}
+                      className="px-4 py-3 text-sm text-gray-300 cursor-pointer"
+                    >
+                      {trade.strategy || 'N/A'}
+                    </td>
                     <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // Edit functionality will go here
-                        }}
-                        className="text-[#a4fc3c] hover:text-white mr-2 transition-colors"
-                        title="Edit"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // Delete functionality will go here
-                        }}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditModal(trade)
+                          }}
+                          className="text-[#a4fc3c] hover:text-white transition-colors p-1"
+                          title="Edit trade"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeleteModal(trade)
+                          }}
+                          className="text-red-400 hover:text-red-300 transition-colors p-1"
+                          title="Delete trade"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -359,48 +336,48 @@ function AllTrades({ trades }) {
             </table>
           </div>
         </div>
+      ) : (
+        <div className="bg-[#1a1a1a] rounded-xl p-12 text-center border border-gray-800">
+          <p className="text-gray-400 text-lg">No trades found matching your filters</p>
+        </div>
       )}
 
       {/* Trade Detail Modal */}
-      {selectedTrade && (
-        <div 
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-          onClick={closeTradeModal}
-        >
-          <div 
-            className="bg-[#1a1a1a] rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-800"
-            onClick={(e) => e.stopPropagation()}
-          >
+      {isDetailModalOpen && selectedTrade && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-800">
             {/* Modal Header */}
             <div className="bg-[#0a0a0a] p-6 border-b border-gray-800 flex justify-between items-start">
-              <div>
+              <div className="flex-1">
                 <div className="flex items-center gap-4 mb-2">
-                  <h3 className="text-3xl font-bold text-white">{selectedTrade.ticker}</h3>
-                  <span className={`px-3 py-1 rounded text-sm font-semibold ${
+                  <h2 className="text-3xl font-bold text-white">{selectedTrade.ticker}</h2>
+                  <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded ${
                     selectedTrade.setup_quality === 'A' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' :
                     selectedTrade.setup_quality === 'B' ? 'bg-yellow-500/20 text-yellow-400' :
                     'bg-red-500/20 text-red-400'
                   }`}>
-                    Grade {selectedTrade.setup_quality}
+                    Grade: {selectedTrade.setup_quality}
                   </span>
                 </div>
-                <div className="text-sm text-gray-400">
+                <p className="text-gray-400">
                   {format(parseISO(selectedTrade.trade_date), 'EEEE, MMMM d, yyyy')}
-                </div>
+                </p>
               </div>
               <button
                 onClick={closeTradeModal}
-                className="text-gray-400 hover:text-white text-3xl leading-none transition-colors"
+                className="text-gray-400 hover:text-white transition-colors"
               >
-                ×
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-              {/* P/L Section */}
-              <div className="mb-6 p-6 bg-[#0a0a0a] rounded-lg border border-gray-800">
-                <div className="text-sm text-gray-400 mb-2">Profit/Loss</div>
+            {/* Modal Body */}
+            <div className="p-6">
+              {/* P/L Display */}
+              <div className="mb-6">
+                <div className="text-sm text-gray-500 mb-1">Profit/Loss</div>
                 <div className={`text-5xl font-bold ${
                   selectedTrade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
                 }`}>
@@ -427,40 +404,50 @@ function AllTrades({ trades }) {
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Strategy</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.strategy}</div>
+                  <div className="text-lg font-bold text-white">{selectedTrade.strategy || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Setup Type</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.setup_type}</div>
+                  <div className="text-lg font-bold text-white">{selectedTrade.setup_type || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Pullback Type</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.pullback_type}</div>
+                  <div className="text-lg font-bold text-white">{selectedTrade.pullback_type || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Sector</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.sector}</div>
+                  <div className="text-lg font-bold text-white">{selectedTrade.sector || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Float</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.float}</div>
+                  <div className="text-lg font-bold text-white">{selectedTrade.float || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">News</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.news ? 'Yes' : 'No'}</div>
+                  <div className="text-lg font-bold text-white">{selectedTrade.news ? 'Yes' : 'No'}</div>
                 </div>
               </div>
 
               {/* Notes Section */}
-              {selectedTrade.notes && (
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                  <div className="text-xs text-gray-500 mb-2">Trade Notes</div>
-                  <div className="text-gray-300 leading-relaxed">{selectedTrade.notes}</div>
+              {(selectedTrade.notes || selectedTrade.loser_winner_reason) && (
+                <div className="space-y-4">
+                  {selectedTrade.notes && (
+                    <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+                      <div className="text-xs text-gray-500 mb-2">Trade Notes</div>
+                      <div className="text-gray-300 leading-relaxed">{selectedTrade.notes}</div>
+                    </div>
+                  )}
+                  {selectedTrade.loser_winner_reason && (
+                    <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+                      <div className="text-xs text-gray-500 mb-2">Win/Loss Analysis</div>
+                      <div className="text-gray-300 leading-relaxed">{selectedTrade.loser_winner_reason}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -471,7 +458,7 @@ function AllTrades({ trades }) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    // Edit functionality will go here
+                    openEditModal(selectedTrade)
                   }}
                   className="px-4 py-2 bg-[#0a0a0a] border border-gray-700 text-[#a4fc3c] rounded-lg font-semibold hover:bg-[#2a2a2a] transition-colors"
                 >
@@ -480,7 +467,7 @@ function AllTrades({ trades }) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    // Delete functionality will go here
+                    openDeleteModal(selectedTrade)
                   }}
                   className="px-4 py-2 bg-[#0a0a0a] border border-gray-700 text-red-400 rounded-lg font-semibold hover:bg-[#2a2a2a] transition-colors"
                 >
@@ -497,6 +484,23 @@ function AllTrades({ trades }) {
           </div>
         </div>
       )}
+
+      {/* Edit Modal */}
+      <EditTradeModal
+        isOpen={isEditModalOpen}
+        onClose={closeEditModal}
+        trade={selectedTrade}
+        onUpdate={onUpdate}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleDelete}
+        trade={selectedTrade}
+        loading={deleteLoading}
+      />
     </div>
   )
 }
