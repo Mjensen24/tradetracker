@@ -7,10 +7,8 @@ function AllTrades({ trades }) {
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [tickerSearch, setTickerSearch] = useState('')
-  const [longShortFilter, setLongShortFilter] = useState('all')
   const [qualityFilter, setQualityFilter] = useState('all')
   const [setupTypeFilter, setSetupTypeFilter] = useState('all')
-  const [fiberFilter, setFiberFilter] = useState('all')
   
   // Modal state
   const [selectedTrade, setSelectedTrade] = useState(null)
@@ -50,7 +48,7 @@ function AllTrades({ trades }) {
 
       if (startDate && endDate) {
         filtered = filtered.filter(trade => {
-          const tradeDate = parseISO(trade.date)
+          const tradeDate = parseISO(trade.trade_date)
           return isWithinInterval(tradeDate, { start: startDate, end: endDate })
         })
       }
@@ -58,14 +56,9 @@ function AllTrades({ trades }) {
 
     // Ticker search filter
     if (tickerSearch.trim() !== '') {
-      filtered = filtered.filter(t => 
+      filtered = filtered.filter(t =>
         t.ticker.toLowerCase().includes(tickerSearch.toLowerCase())
       )
-    }
-
-    // Long/Short filter
-    if (longShortFilter !== 'all') {
-      filtered = filtered.filter(t => t.long_short === longShortFilter)
     }
 
     // Quality filter
@@ -78,13 +71,8 @@ function AllTrades({ trades }) {
       filtered = filtered.filter(t => t.setup_type === setupTypeFilter)
     }
 
-    // Fiber filter
-    if (fiberFilter !== 'all') {
-      filtered = filtered.filter(t => t.fiber === fiberFilter)
-    }
-
     return filtered
-  }, [trades, dateFilter, customStartDate, customEndDate, tickerSearch, longShortFilter, qualityFilter, setupTypeFilter, fiberFilter])
+  }, [trades, dateFilter, customStartDate, customEndDate, tickerSearch, qualityFilter, setupTypeFilter])
 
   // Calculate filtered stats
   const filteredStats = useMemo(() => {
@@ -102,16 +90,13 @@ function AllTrades({ trades }) {
     setCustomStartDate('')
     setCustomEndDate('')
     setTickerSearch('')
-    setLongShortFilter('all')
     setQualityFilter('all')
     setSetupTypeFilter('all')
-    setFiberFilter('all')
   }
 
   // Check if any filters are active
-  const hasActiveFilters = dateFilter !== 'all' || tickerSearch !== '' || 
-    longShortFilter !== 'all' || qualityFilter !== 'all' || 
-    setupTypeFilter !== 'all' || fiberFilter !== 'all'
+  const hasActiveFilters = dateFilter !== 'all' || tickerSearch !== '' ||
+    qualityFilter !== 'all' || setupTypeFilter !== 'all'
 
   // Open trade modal
   const openTradeModal = (trade) => {
@@ -144,7 +129,7 @@ function AllTrades({ trades }) {
           </div>
 
           {/* Filter Dropdowns Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Date Range */}
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Date Range</label>
@@ -177,27 +162,6 @@ function AllTrades({ trades }) {
                 onChange={(e) => setTickerSearch(e.target.value)}
                 className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors placeholder-gray-600"
               />
-            </div>
-
-            {/* Long/Short */}
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Position</label>
-              <select
-                value={longShortFilter}
-                onChange={(e) => setLongShortFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23a4fc3c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem'
-                }}
-              >
-                <option value="all">All Positions</option>
-                <option value="L">Long Only</option>
-                <option value="S">Short Only</option>
-              </select>
             </div>
 
             {/* Setup Quality */}
@@ -242,28 +206,6 @@ function AllTrades({ trades }) {
                     {type === 'all' ? 'All Setups' : type}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* Fiber */}
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Fiber</label>
-              <select
-                value={fiberFilter}
-                onChange={(e) => setFiberFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-[#a4fc3c] hover:border-gray-600 transition-colors appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23a4fc3c' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem'
-                }}
-              >
-                <option value="all">All Fiber</option>
-                <option value="Yes">Yes</option>
-                <option value="Weak">Weak</option>
-                <option value="No">No</option>
               </select>
             </div>
           </div>
@@ -349,7 +291,6 @@ function AllTrades({ trades }) {
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Date</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Ticker</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">L/S</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Entry</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Exit</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Shares</th>
@@ -362,22 +303,15 @@ function AllTrades({ trades }) {
               </thead>
               <tbody className="divide-y divide-gray-800">
                 {filteredTrades.map((trade, idx) => (
-                  <tr 
-                    key={trade.id} 
+                  <tr
+                    key={trade.id}
                     onClick={() => openTradeModal(trade)}
                     className={`${idx % 2 === 0 ? 'bg-[#1a1a1a]' : 'bg-[#0a0a0a]'} hover:bg-[#2a2a2a] cursor-pointer transition-colors`}
                   >
                     <td className="px-4 py-3 text-sm text-gray-300">
-                      {format(parseISO(trade.date), 'MMM d, yyyy')}
+                      {format(parseISO(trade.trade_date), 'MMM d, yyyy')}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-white">{trade.ticker}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        trade.long_short === 'L' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {trade.long_short}
-                      </span>
-                    </td>
                     <td className="px-4 py-3 text-sm text-gray-300">${trade.entry_price.toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-gray-300">${trade.exit_price.toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-gray-300">{trade.shares}</td>
@@ -398,22 +332,22 @@ function AllTrades({ trades }) {
                     <td className="px-4 py-3 text-sm text-gray-300">{trade.setup_type}</td>
                     <td className="px-4 py-3 text-sm max-w-xs truncate text-gray-400">{trade.notes}</td>
                     <td className="px-4 py-3 text-sm">
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation()
                           // Edit functionality will go here
                         }}
-                        className="text-[#a4fc3c] hover:text-white mr-2 transition-colors" 
+                        className="text-[#a4fc3c] hover:text-white mr-2 transition-colors"
                         title="Edit"
                       >
                         ✏️
                       </button>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation()
                           // Delete functionality will go here
                         }}
-                        className="text-red-400 hover:text-red-300 transition-colors" 
+                        className="text-red-400 hover:text-red-300 transition-colors"
                         title="Delete"
                       >
                         🗑️
@@ -443,11 +377,6 @@ function AllTrades({ trades }) {
                 <div className="flex items-center gap-4 mb-2">
                   <h3 className="text-3xl font-bold text-white">{selectedTrade.ticker}</h3>
                   <span className={`px-3 py-1 rounded text-sm font-semibold ${
-                    selectedTrade.long_short === 'L' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' : 'bg-red-500/20 text-red-400'
-                  }`}>
-                    {selectedTrade.long_short === 'L' ? 'LONG' : 'SHORT'}
-                  </span>
-                  <span className={`px-3 py-1 rounded text-sm font-semibold ${
                     selectedTrade.setup_quality === 'A' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' :
                     selectedTrade.setup_quality === 'B' ? 'bg-yellow-500/20 text-yellow-400' :
                     'bg-red-500/20 text-red-400'
@@ -456,7 +385,7 @@ function AllTrades({ trades }) {
                   </span>
                 </div>
                 <div className="text-sm text-gray-400">
-                  {format(parseISO(selectedTrade.date), 'EEEE, MMMM d, yyyy')}
+                  {format(parseISO(selectedTrade.trade_date), 'EEEE, MMMM d, yyyy')}
                 </div>
               </div>
               <button
@@ -497,8 +426,8 @@ function AllTrades({ trades }) {
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                  <div className="text-xs text-gray-500 mb-1">Stop Loss</div>
-                  <div className="text-2xl font-bold text-white">${selectedTrade.stop_loss.toFixed(2)}</div>
+                  <div className="text-xs text-gray-500 mb-1">Strategy</div>
+                  <div className="text-2xl font-bold text-white">{selectedTrade.strategy}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
@@ -510,41 +439,20 @@ function AllTrades({ trades }) {
                   <div className="text-xs text-gray-500 mb-1">Pullback Type</div>
                   <div className="text-2xl font-bold text-white">{selectedTrade.pullback_type}</div>
                 </div>
-              </div>
 
-              {/* Setup Quality Indicators */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800 text-center">
-                  <div className="text-xs text-gray-500 mb-2">Fiber</div>
-                  <div className={`text-lg font-semibold ${
-                    selectedTrade.fiber === 'Yes' ? 'text-[#a4fc3c]' : 
-                    selectedTrade.fiber === 'Weak' ? 'text-yellow-400' : 
-                    'text-red-400'
-                  }`}>
-                    {selectedTrade.fiber}
-                  </div>
+                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+                  <div className="text-xs text-gray-500 mb-1">Sector</div>
+                  <div className="text-2xl font-bold text-white">{selectedTrade.sector}</div>
                 </div>
 
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800 text-center">
-                  <div className="text-xs text-gray-500 mb-2">Ranges</div>
-                  <div className={`text-lg font-semibold ${
-                    selectedTrade.ranges === 'Clean' ? 'text-[#a4fc3c]' : 
-                    selectedTrade.ranges === 'Choppy' ? 'text-yellow-400' : 
-                    'text-red-400'
-                  }`}>
-                    {selectedTrade.ranges}
-                  </div>
+                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+                  <div className="text-xs text-gray-500 mb-1">Float</div>
+                  <div className="text-2xl font-bold text-white">{selectedTrade.float}</div>
                 </div>
 
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800 text-center">
-                  <div className="text-xs text-gray-500 mb-2">Setup Quality</div>
-                  <div className={`text-lg font-semibold ${
-                    selectedTrade.setup_quality === 'A' ? 'text-[#a4fc3c]' :
-                    selectedTrade.setup_quality === 'B' ? 'text-yellow-400' :
-                    'text-red-400'
-                  }`}>
-                    Grade {selectedTrade.setup_quality}
-                  </div>
+                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+                  <div className="text-xs text-gray-500 mb-1">News</div>
+                  <div className="text-2xl font-bold text-white">{selectedTrade.news ? 'Yes' : 'No'}</div>
                 </div>
               </div>
 

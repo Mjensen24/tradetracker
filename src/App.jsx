@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Sidebar from './components/Sidebar'
 import Dashboard from './components/Dashboard'
 import Charts from './components/Charts'
@@ -8,12 +8,16 @@ import Settings from './components/Settings'
 import PositionCalculator from './components/PositionCalculator'
 import { mockTrades } from './data/mockTrades'
 import { STARTING_BALANCE } from './constants/tradeOptions'
-import { calculateStats } from './utils/tradeCalculations'
+import { calculateStats, calculateDerivedFields } from './utils/tradeCalculations'
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard')
-  const [trades] = useState(mockTrades)
-  
+
+  // Calculate derived fields (profit_loss, cents_diff, win_loss) for all trades
+  const trades = useMemo(() => {
+    return mockTrades.map(trade => calculateDerivedFields(trade))
+  }, [])
+
   const stats = calculateStats(trades, STARTING_BALANCE)
 
 
