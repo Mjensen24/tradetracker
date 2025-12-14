@@ -4,6 +4,7 @@ function Sidebar({ currentView, onViewChange }) {
     { id: 'charts', label: 'Charts', icon: '📈' },
     { id: 'calendar', label: 'Calendar', icon: '📅' },
     { id: 'trades', label: 'All Trades', icon: '📋' },
+    { id: 'calculator', label: 'Position Calculator', icon: '🧮' },
     { id: 'settings', label: 'Settings', icon: '⚙️' }
   ]
 
