@@ -53,7 +53,7 @@ function Dashboard({ trades, stats }) {
         <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 border border-gray-800">
           <div className="text-sm text-gray-400 mb-2">Current Streak</div>
           <div className="text-4xl font-bold text-white">
-            {stats.currentStreak}
+            {stats.currentStreak} Days
           </div>
           <div className="text-sm text-gray-500 mt-2">
             Active streak
@@ -65,7 +65,7 @@ function Dashboard({ trades, stats }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         
         {/* Column 1: Profit & Loss (Teal) */}
-        <div className="bg-gradient-to-br from-teal-600 to-teal-700 rounded-xl shadow-lg p-6">
+        <div className="bg-gradient-to-br from-teal-600/30 to-teal-700/20 rounded-xl shadow-lg p-6 border border-teal-800/30">
           <h3 className="text-xl font-bold text-white mb-4 border-b border-teal-500 pb-2">
             Profit & Loss
           </h3>
@@ -79,8 +79,8 @@ function Dashboard({ trades, stats }) {
               <div className="text-xl font-bold text-white">-${stats.grossLosses.toFixed(2)}</div>
             </div>
             <div className="bg-teal-800/50 p-3 rounded-lg">
-              <div className="text-xs text-teal-200 mb-1">Profit Factor</div>
-              <div className="text-xl font-bold text-white">{stats.profitFactor.toFixed(2)}</div>
+              <div className="text-xs text-teal-200 mb-1">P&L Ratio</div>
+              <div className="text-xl font-bold text-white">{stats.riskRewardRatio.toFixed(1)}:1</div>
             </div>
             <div className="bg-teal-800/50 p-3 rounded-lg">
               <div className="text-xs text-teal-200 mb-1">Win Rate</div>
@@ -95,7 +95,7 @@ function Dashboard({ trades, stats }) {
         </div>
 
         {/* Column 2: Winners (Green) */}
-        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-lg p-6">
+        <div className="bg-gradient-to-br from-green-600/30 to-green-700/20 rounded-xl shadow-lg p-6 border border-green-800/30">
           <h3 className="text-xl font-bold text-white mb-4 border-b border-green-500 pb-2">
             Winners
           </h3>
@@ -126,7 +126,7 @@ function Dashboard({ trades, stats }) {
         </div>
 
         {/* Column 3: Losers (Red) */}
-        <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-xl shadow-lg p-6">
+        <div className="bg-gradient-to-br from-red-600/30 to-red-700/20 rounded-xl shadow-lg p-6 border border-red-800/30">
           <h3 className="text-xl font-bold text-white mb-4 border-b border-red-500 pb-2">
             Losers
           </h3>

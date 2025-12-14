@@ -97,22 +97,30 @@ export const calculateStats = (trades, startingBalance) => {
     }
   });
   
-  // Current streak
-  let currentStreak = 0;
-  let streakType = '';
-  if (trades.length > 0) {
-    for (let i = trades.length - 1; i >= 0; i--) {
-      if (i === trades.length - 1) {
-        streakType = trades[i].winLoss;
-        currentStreak = 1;
-      } else if (trades[i].winLoss === streakType) {
-        currentStreak++;
-      } else {
-        break;
-      }
+// Current streak - consecutive days traded
+let currentStreak = 0;
+if (trades.length > 0) {
+  const uniqueDates = [...new Set(trades.map(t => t.date))].sort((a, b) => 
+    new Date(b) - new Date(a)
+  );
+
+  currentStreak = 1; // At least 1 day if we have trades
+  
+  for (let i = 0; i < uniqueDates.length - 1; i++) {
+    const currentDate = new Date(uniqueDates[i]);
+    const previousDate = new Date(uniqueDates[i + 1]);
+
+    const diffTime = currentDate - previousDate;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 3) {
+      currentStreak++;
+    } else {
+      break; // Streak broken
     }
   }
-  const currentStreakDisplay = trades.length > 0 ? `${currentStreak}${streakType}` : '0';
+}
+const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
   
   const currentBalance = startingBalance + netPL;
   const roi = ((netPL / startingBalance) * 100);
