@@ -184,16 +184,16 @@ function Dashboard({ trades, stats }) {
               
               <div className="flex items-center gap-4">
                 <div className={`font-bold ${
-                  trade.profitLoss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+                  trade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
                 }`}>
-                  {trade.profitLoss >= 0 ? '+' : ''}${trade.profitLoss.toFixed(2)}
+                  {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
                 </div>
                 <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                  trade.setupQuality === 'A' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' :
-                  trade.setupQuality === 'B' ? 'bg-yellow-500/20 text-yellow-400' :
+                  trade.setup_quality === 'A' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' :
+                  trade.setup_quality === 'B' ? 'bg-yellow-500/20 text-yellow-400' :
                   'bg-red-500/20 text-red-400'
-                }`}>
-                  {trade.setupQuality}
+                  }`}>
+                    {trade.setup_quality}
                 </span>
               </div>
             </div>

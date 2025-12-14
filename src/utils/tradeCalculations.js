@@ -13,12 +13,12 @@ export const calculateTradeMetrics = (bought, sold, shares) => {
 
 // Calculate dashboard statistics
 export const calculateStats = (trades, startingBalance) => {
-  const wins = trades.filter(t => t.winLoss === 'W');
-  const losses = trades.filter(t => t.winLoss === 'L');
+  const wins = trades.filter(t => t.win_loss === 'W');
+  const losses = trades.filter(t => t.win_loss === 'L');
   
-  const grossWins = wins.reduce((sum, t) => sum + t.profitLoss, 0);
-  const grossLosses = Math.abs(losses.reduce((sum, t) => sum + t.profitLoss, 0));
-  const netPL = trades.reduce((sum, t) => sum + t.profitLoss, 0);
+  const grossWins = wins.reduce((sum, t) => sum + t.profit_loss, 0);
+  const grossLosses = Math.abs(losses.reduce((sum, t) => sum + t.profit_loss, 0));
+  const netPL = trades.reduce((sum, t) => sum + t.profit_loss, 0);
   
   const avgWin = wins.length > 0 ? grossWins / wins.length : 0;
   const avgLoss = losses.length > 0 ? grossLosses / losses.length : 0;
@@ -27,22 +27,22 @@ export const calculateStats = (trades, startingBalance) => {
   const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
   const expectancy = trades.length > 0 ? netPL / trades.length : 0;
   
-  const largestWin = wins.length > 0 ? Math.max(...wins.map(t => t.profitLoss)) : 0;
-  const largestLoss = losses.length > 0 ? Math.min(...losses.map(t => t.profitLoss)) : 0;
+  const largestWin = wins.length > 0 ? Math.max(...wins.map(t => t.profit_loss)) : 0;
+  const largestLoss = losses.length > 0 ? Math.min(...losses.map(t => t.profit_loss)) : 0;
   
   const riskRewardRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
   
   // Setup Quality Analysis
   const setupQualities = ['A', 'B', 'C'];
   const setupStats = setupQualities.map(quality => {
-    const qualityTrades = trades.filter(t => t.setupQuality === quality);
-    const setupWins = qualityTrades.filter(t => t.winLoss === 'W');
+  const qualityTrades = trades.filter(t => t.setup_quality === quality);
+  const setupWins = qualityTrades.filter(t => t.win_loss === 'W');
     return {
       quality,
       trades: qualityTrades.length,
       winRate: qualityTrades.length > 0 ? (setupWins.length / qualityTrades.length) * 100 : 0,
-      avgPL: qualityTrades.length > 0 ? qualityTrades.reduce((sum, t) => sum + t.profitLoss, 0) / qualityTrades.length : 0,
-      totalPL: qualityTrades.reduce((sum, t) => sum + t.profitLoss, 0)
+      avgPL: qualityTrades.length > 0 ? qualityTrades.reduce((sum, t) => sum + t.profit_loss, 0) / qualityTrades.length : 0,
+      totalPL: qualityTrades.reduce((sum, t) => sum + t.profit_loss, 0)
     };
   }).filter(s => s.trades > 0);
   
@@ -60,7 +60,7 @@ export const calculateStats = (trades, startingBalance) => {
     const strategyTrades = trades.filter(t => t.strategy === strategy);
     return {
       name: strategy,
-      totalPL: strategyTrades.reduce((sum, t) => sum + t.profitLoss, 0),
+      totalPL: strategyTrades.reduce((sum, t) => sum + t.profit_loss, 0),
       trades: strategyTrades.length
     };
   });
