@@ -12,9 +12,9 @@ function Dashboard({ trades, stats }) {
   const getBalanceGrowthData = () => {
     // Group trades by date and calculate daily P/L
     const dailyMap = {}
-    
+
     trades.forEach(trade => {
-      const dateKey = trade.date
+      const dateKey = trade.trade_date
       if (!dailyMap[dateKey]) {
         dailyMap[dateKey] = {
           date: dateKey,
@@ -273,7 +273,6 @@ function Dashboard({ trades, stats }) {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">L/S</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shares</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
@@ -284,17 +283,10 @@ function Dashboard({ trades, stats }) {
               {recentTrades.map((trade) => (
                 <tr key={trade.id} className="hover:bg-[#0a0a0a] transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {new Date(trade.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(trade.trade_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">
                     {trade.ticker}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
-                      trade.long_short === 'L' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' : 'bg-red-400/20 text-red-400'
-                    }`}>
-                      {trade.long_short}
-                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     {trade.strategy}

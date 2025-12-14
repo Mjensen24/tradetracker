@@ -20,7 +20,7 @@ function Calendar({ trades }) {
   // Process trades by date
   const getTradesByDate = (date) => {
     const dateStr = format(date, 'yyyy-MM-dd')
-    return trades.filter(trade => trade.date === dateStr)
+    return trades.filter(trade => trade.trade_date === dateStr)
   }
 
   const getDayStats = (date) => {
@@ -52,7 +52,7 @@ function Calendar({ trades }) {
   // Calculate monthly total
   const getMonthlyTotal = () => {
     const monthTrades = trades.filter(trade => {
-      const tradeDate = parseISO(trade.date)
+      const tradeDate = parseISO(trade.trade_date)
       return isSameMonth(tradeDate, currentMonth)
     })
     return monthTrades.reduce((sum, trade) => sum + trade.profit_loss, 0)
@@ -286,11 +286,9 @@ function Calendar({ trades }) {
                       <div>
                         <div className="text-xs text-gray-500 mb-1">Ticker</div>
                         <div className="text-xl font-bold text-white">{trade.ticker}</div>
-                        <span className={`inline-block mt-1 px-2 py-1 rounded text-xs font-semibold ${
-                          trade.long_short === 'L' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' : 'bg-red-500/20 text-red-400'
-                        }`}>
-                          {trade.long_short === 'L' ? 'LONG' : 'SHORT'}
-                        </span>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {trade.sector}
+                        </div>
                       </div>
 
                       {/* Entry/Exit */}
@@ -331,22 +329,18 @@ function Calendar({ trades }) {
                     </div>
 
                     {/* Additional Details */}
-                    <div className="mt-4 pt-4 border-t border-gray-800 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="mt-4 pt-4 border-t border-gray-800 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">Stop Loss:</span>
-                        <span className="text-white ml-2">${trade.stop_loss.toFixed(2)}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Fiber:</span>
-                        <span className="text-white ml-2">{trade.fiber}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Ranges:</span>
-                        <span className="text-white ml-2">{trade.ranges}</span>
+                        <span className="text-gray-500">Strategy:</span>
+                        <span className="text-white ml-2">{trade.strategy}</span>
                       </div>
                       <div>
                         <span className="text-gray-500">Pullback:</span>
                         <span className="text-white ml-2">{trade.pullback_type}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">News:</span>
+                        <span className="text-white ml-2">{trade.news ? 'Yes' : 'No'}</span>
                       </div>
                     </div>
 

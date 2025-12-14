@@ -1,9 +1,24 @@
-// Auto-calculate trade metrics
+// Calculate derived fields for a trade
+// These fields are calculated from the database values and not stored
+export const calculateDerivedFields = (trade) => {
+  const profit_loss = (trade.exit_price - trade.entry_price) * trade.shares;
+  const cents_diff = trade.exit_price - trade.entry_price;
+  const win_loss = profit_loss > 0 ? 'W' : 'L';
+
+  return {
+    ...trade,
+    profit_loss: Number(profit_loss.toFixed(2)),
+    cents_diff: Number(cents_diff.toFixed(2)),
+    win_loss
+  };
+};
+
+// Auto-calculate trade metrics (legacy function for compatibility)
 export const calculateTradeMetrics = (bought, sold, shares) => {
   const centsDiff = sold - bought;
   const profitLoss = centsDiff * shares;
   const winLoss = profitLoss >= 0 ? 'W' : 'L';
-  
+
   return {
     profitLoss: Number(profitLoss.toFixed(2)),
     centsDiff: Number(centsDiff.toFixed(2)),
@@ -100,12 +115,12 @@ export const calculateStats = (trades, startingBalance) => {
 // Current streak - consecutive days traded
 let currentStreak = 0;
 if (trades.length > 0) {
-  const uniqueDates = [...new Set(trades.map(t => t.date))].sort((a, b) => 
+  const uniqueDates = [...new Set(trades.map(t => t.trade_date))].sort((a, b) =>
     new Date(b) - new Date(a)
   );
 
   currentStreak = 1; // At least 1 day if we have trades
-  
+
   for (let i = 0; i < uniqueDates.length - 1; i++) {
     const currentDate = new Date(uniqueDates[i]);
     const previousDate = new Date(uniqueDates[i + 1]);

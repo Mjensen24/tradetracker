@@ -11,12 +11,12 @@ function Charts({ trades }) {
   // Process data for weekly chart
   const getWeeklyData = () => {
     const weekMap = {}
-    
+
     trades.forEach(trade => {
-      const date = parseISO(trade.date)
+      const date = parseISO(trade.trade_date)
       const weekStart = startOfWeek(date, { weekStartsOn: 1 }) // Monday start
       const weekKey = format(weekStart, 'MMM d')
-      
+
       if (!weekMap[weekKey]) {
         weekMap[weekKey] = {
           week: weekKey,
@@ -26,25 +26,25 @@ function Charts({ trades }) {
           losses: 0
         }
       }
-      
+
       weekMap[weekKey].profitLoss += trade.profit_loss
       weekMap[weekKey].trades += 1
       if (trade.profit_loss > 0) weekMap[weekKey].wins += 1
       else if (trade.profit_loss < 0) weekMap[weekKey].losses += 1
     })
-    
+
     return Object.values(weekMap)
   }
 
   // Process data for monthly chart
   const getMonthlyData = () => {
     const monthMap = {}
-    
+
     trades.forEach(trade => {
-      const date = parseISO(trade.date)
+      const date = parseISO(trade.trade_date)
       const monthStart = startOfMonth(date)
       const monthKey = format(monthStart, 'MMM yyyy')
-      
+
       if (!monthMap[monthKey]) {
         monthMap[monthKey] = {
           month: monthKey,
@@ -54,13 +54,13 @@ function Charts({ trades }) {
           losses: 0
         }
       }
-      
+
       monthMap[monthKey].profitLoss += trade.profit_loss
       monthMap[monthKey].trades += 1
       if (trade.profit_loss > 0) monthMap[monthKey].wins += 1
       else if (trade.profit_loss < 0) monthMap[monthKey].losses += 1
     })
-    
+
     return Object.values(monthMap).sort((a, b) => {
       const dateA = new Date(a.month)
       const dateB = new Date(b.month)
@@ -71,12 +71,12 @@ function Charts({ trades }) {
   // Process data for yearly chart
   const getYearlyData = () => {
     const yearMap = {}
-    
+
     trades.forEach(trade => {
-      const date = parseISO(trade.date)
+      const date = parseISO(trade.trade_date)
       const yearStart = startOfYear(date)
       const yearKey = format(yearStart, 'yyyy')
-      
+
       if (!yearMap[yearKey]) {
         yearMap[yearKey] = {
           year: yearKey,
@@ -86,64 +86,64 @@ function Charts({ trades }) {
           losses: 0
         }
       }
-      
+
       yearMap[yearKey].profitLoss += trade.profit_loss
       yearMap[yearKey].trades += 1
       if (trade.profit_loss > 0) yearMap[yearKey].wins += 1
       else if (trade.profit_loss < 0) yearMap[yearKey].losses += 1
     })
-    
+
     return Object.values(yearMap).sort((a, b) => parseInt(a.year) - parseInt(b.year))
   }
 
   // Process data for daily chart
   const getDailyData = () => {
     const dailyMap = {}
-    
+
     trades.forEach(trade => {
-      const dateKey = trade.date
-      
+      const dateKey = trade.trade_date
+
       if (!dailyMap[dateKey]) {
         dailyMap[dateKey] = {
-          date: format(parseISO(trade.date), 'MMM d'),
-          fullDate: trade.date,
+          date: format(parseISO(trade.trade_date), 'MMM d'),
+          fullDate: trade.trade_date,
           profitLoss: 0,
           trades: 0
         }
       }
-      
+
       dailyMap[dateKey].profitLoss += trade.profit_loss
       dailyMap[dateKey].trades += 1
     })
-    
-    return Object.values(dailyMap).sort((a, b) => 
+
+    return Object.values(dailyMap).sort((a, b) =>
       new Date(a.fullDate) - new Date(b.fullDate)
     )
   }
 
   // Process data for cumulative balance chart
   const getCumulativeData = () => {
-    const sortedTrades = [...trades].sort((a, b) => 
-      new Date(a.date) - new Date(b.date)
+    const sortedTrades = [...trades].sort((a, b) =>
+      new Date(a.trade_date) - new Date(b.trade_date)
     )
-    
+
     const startingBalance = 5000
     let runningBalance = startingBalance
-    
+
     const data = [{
       date: 'Start',
       balance: startingBalance
     }]
-    
+
     sortedTrades.forEach((trade, idx) => {
       runningBalance += trade.profit_loss
       data.push({
-        date: format(parseISO(trade.date), 'MMM d'),
+        date: format(parseISO(trade.trade_date), 'MMM d'),
         balance: runningBalance,
         trade: `${trade.ticker} ${trade.profit_loss >= 0 ? '+' : ''}$${trade.profit_loss.toFixed(2)}`
       })
     })
-    
+
     return data
   }
 
