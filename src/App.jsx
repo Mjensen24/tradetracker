@@ -6,23 +6,62 @@ import Calendar from './components/Calendar'
 import AllTrades from './components/AllTrades'
 import Settings from './components/Settings'
 import PositionCalculator from './components/PositionCalculator'
-import { mockTrades } from './data/mockTrades'
+import { useTrades, useAccount } from './hooks/useTrades'
 import { STARTING_BALANCE } from './constants/tradeOptions'
-import { calculateStats, calculateDerivedFields } from './utils/tradeCalculations'
+import { calculateStats } from './utils/tradeCalculations'
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard')
+  
+  // Fetch data from Supabase
+  const { trades: supabaseTrades, loading: tradesLoading, error: tradesError } = useTrades()
+  const { account, loading: accountLoading, error: accountError } = useAccount()
 
-  // Calculate derived fields (profit_loss, cents_diff, win_loss) for all trades
-  const trades = useMemo(() => {
-    return mockTrades.map(trade => calculateDerivedFields(trade))
-  }, [])
+  const loading = tradesLoading || accountLoading
+  const error = tradesError || accountError
 
-  const stats = calculateStats(trades, STARTING_BALANCE)
+  // Use account's starting balance or fallback to constant
+  const startingBalance = account?.starting_balance || STARTING_BALANCE
 
+  // Trades already have calculated fields from the hook (profit_loss, cents_diff, win_loss)
+  const trades = supabaseTrades
+
+  // Calculate stats using Supabase data
+  const stats = useMemo(() => {
+    if (trades.length === 0) return null
+    return calculateStats(trades, startingBalance)
+  }, [trades, startingBalance])
 
   // Render the appropriate view based on currentView
   const renderView = () => {
+    // Show loading state
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-[calc(100vh-73px)]">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#a4fc3c] mb-4"></div>
+            <p className="text-gray-400">Loading your trading data...</p>
+          </div>
+        </div>
+      )
+    }
+
+    // Show error state
+    if (error) {
+      return (
+        <div className="flex items-center justify-center h-[calc(100vh-73px)]">
+          <div className="bg-red-900/20 border border-red-500 rounded-lg p-6 max-w-md">
+            <h3 className="text-red-400 font-semibold mb-2">Error Loading Data</h3>
+            <p className="text-gray-300 text-sm mb-4">{error}</p>
+            <p className="text-gray-400 text-xs">
+              Check your .env file and make sure Supabase credentials are correct.
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    // Render views with data
     switch (currentView) {
       case 'dashboard':
         return <Dashboard trades={trades} stats={stats} />
@@ -33,7 +72,7 @@ function App() {
       case 'trades':
         return <AllTrades trades={trades} />
       case 'calculator':
-        return <PositionCalculator currentBalance={stats.currentBalance} />
+        return <PositionCalculator currentBalance={stats?.currentBalance || startingBalance} />
       case 'settings':
         return <Settings />
       default:
