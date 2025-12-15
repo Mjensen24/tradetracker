@@ -1,3 +1,5 @@
+import { parseISO, isSameMonth, getDay, format } from 'date-fns'
+
 // Calculate derived fields for a trade
 // These fields are calculated from the database values and not stored
 export const calculateDerivedFields = (trade) => {
@@ -208,5 +210,159 @@ const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
     currentBalance,
     roi,
     recentTrades: [...trades].reverse().slice(0, 10) // Last 10 trades
+  };
+};
+
+// Calculate calendar-specific insights
+export const calculateCalendarInsights = (trades, currentMonth) => {
+  
+  // Filter trades for current month
+  const monthTrades = trades.filter(trade => {
+    const tradeDate = parseISO(trade.trade_date);
+    return isSameMonth(tradeDate, currentMonth);
+  });
+
+  if (monthTrades.length === 0) {
+    return {
+      dayOfWeekStats: [],
+      currentStreak: { type: null, days: 0 },
+      bestDay: null,
+      worstDay: null,
+      mostActiveDay: null,
+      avgPLPerDay: 0,
+      tradingDays: 0
+    };
+  }
+
+  // Group trades by date
+  const tradesByDate = {};
+  monthTrades.forEach(trade => {
+    if (!tradesByDate[trade.trade_date]) {
+      tradesByDate[trade.trade_date] = [];
+    }
+    tradesByDate[trade.trade_date].push(trade);
+  });
+
+  // Calculate day of week stats (0 = Sunday, 6 = Saturday)
+  const dayOfWeekStats = [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => {
+    const dayTrades = monthTrades.filter(trade => {
+      const tradeDate = parseISO(trade.trade_date);
+      return getDay(tradeDate) === dayOfWeek;
+    });
+
+    const dayPL = dayTrades.reduce((sum, t) => sum + t.profit_loss, 0);
+    const wins = dayTrades.filter(t => t.profit_loss > 0).length;
+    const losses = dayTrades.filter(t => t.profit_loss < 0).length;
+
+    return {
+      dayOfWeek,
+      dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
+      shortName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek],
+      totalPL: dayPL,
+      avgPL: dayTrades.length > 0 ? dayPL / dayTrades.length : 0,
+      trades: dayTrades.length,
+      wins,
+      losses,
+      winRate: dayTrades.length > 0 ? (wins / dayTrades.length) * 100 : 0
+    };
+  }).filter(stat => stat.trades > 0);
+
+  // Calculate current streak (winning or losing days)
+  const sortedDates = Object.keys(tradesByDate).sort((a, b) => new Date(b) - new Date(a));
+  let currentStreak = { type: null, days: 0 };
+  
+  if (sortedDates.length > 0) {
+    let streakType = null;
+    let streakDays = 0;
+    
+    for (const date of sortedDates) {
+      const dayPL = tradesByDate[date].reduce((sum, t) => sum + t.profit_loss, 0);
+      const dayType = dayPL > 0 ? 'win' : dayPL < 0 ? 'loss' : null;
+      
+      if (dayType && (streakType === null || streakType === dayType)) {
+        streakType = dayType;
+        streakDays++;
+      } else if (dayType && streakType !== dayType) {
+        break;
+      }
+    }
+    
+    currentStreak = { type: streakType, days: streakDays };
+  }
+
+  // Find best and worst days
+  let bestDay = null;
+  let worstDay = null;
+  let mostActiveDay = null;
+  let maxPL = -Infinity;
+  let minPL = Infinity;
+  let maxTrades = 0;
+
+  Object.entries(tradesByDate).forEach(([date, dayTrades]) => {
+    const dayPL = dayTrades.reduce((sum, t) => sum + t.profit_loss, 0);
+    
+    if (dayPL > maxPL) {
+      maxPL = dayPL;
+      bestDay = { date, pl: dayPL, trades: dayTrades.length };
+    }
+    
+    if (dayPL < minPL) {
+      minPL = dayPL;
+      worstDay = { date, pl: dayPL, trades: dayTrades.length };
+    }
+    
+    if (dayTrades.length > maxTrades) {
+      maxTrades = dayTrades.length;
+      mostActiveDay = { date, pl: dayPL, trades: dayTrades.length };
+    }
+  });
+
+  // Calculate average P/L per trading day
+  const tradingDays = Object.keys(tradesByDate).length;
+  const totalPL = monthTrades.reduce((sum, t) => sum + t.profit_loss, 0);
+  const avgPLPerDay = tradingDays > 0 ? totalPL / tradingDays : 0;
+
+  return {
+    dayOfWeekStats,
+    currentStreak,
+    bestDay,
+    worstDay,
+    mostActiveDay,
+    avgPLPerDay,
+    tradingDays
+  };
+};
+
+// Calculate month comparison
+export const compareMonths = (trades, currentMonth, previousMonth) => {
+  
+  const currentMonthTrades = trades.filter(trade => {
+    const tradeDate = parseISO(trade.trade_date);
+    return isSameMonth(tradeDate, currentMonth);
+  });
+
+  const previousMonthTrades = trades.filter(trade => {
+    const tradeDate = parseISO(trade.trade_date);
+    return isSameMonth(tradeDate, previousMonth);
+  });
+
+  const currentPL = currentMonthTrades.reduce((sum, t) => sum + t.profit_loss, 0);
+  const previousPL = previousMonthTrades.reduce((sum, t) => sum + t.profit_loss, 0);
+  const difference = currentPL - previousPL;
+  const percentChange = previousPL !== 0 ? (difference / Math.abs(previousPL)) * 100 : 0;
+
+  return {
+    current: {
+      pl: currentPL,
+      trades: currentMonthTrades.length,
+      days: new Set(currentMonthTrades.map(t => t.trade_date)).size
+    },
+    previous: {
+      pl: previousPL,
+      trades: previousMonthTrades.length,
+      days: new Set(previousMonthTrades.map(t => t.trade_date)).size
+    },
+    difference,
+    percentChange
   };
 };

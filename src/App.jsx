@@ -103,7 +103,7 @@ function App() {
       case 'charts':
         return <Charts trades={trades} /> 
       case 'calendar':
-        return <Calendar trades={trades}/>
+        return <Calendar trades={trades} onUpdate={updateTrade} onDelete={deleteTrade} />
       case 'trades':
         return <AllTrades trades={trades} onUpdate={updateTrade} onDelete={deleteTrade} />
       case 'calculator':
