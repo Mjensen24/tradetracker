@@ -344,20 +344,20 @@ function AllTrades({ trades, onUpdate, onDelete }) {
                             e.stopPropagation()
                             handleEditTrade(trade)
                           }}
-                          className="text-[#a4fc3c] hover:text-white mr-2 transition-colors"
+                          className="text-[#a4fc3c] hover:text-white mr-3 transition-colors text-sm font-medium"
                           title="Edit"
                         >
-                          ✏️
+                          Edit
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             handleDeleteTrade(trade)
                           }}
-                          className="text-red-400 hover:text-red-300 transition-colors"
+                          className="text-red-400 hover:text-red-300 transition-colors text-sm font-medium"
                           title="Delete"
                         >
-                          🗑️
+                          Delete
                         </button>
                       </td>
                     </tr>
@@ -406,69 +406,78 @@ function AllTrades({ trades, onUpdate, onDelete }) {
 
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-              {/* P/L Section */}
+              {/* Key Metrics - Prominent Display */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                {/* Entry Price - Prominent */}
+                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] p-6 rounded-xl border-2 border-gray-700 shadow-lg">
+                  <div className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Entry Price</div>
+                  <div className="text-4xl font-bold text-white">${selectedTrade.entry_price.toFixed(2)}</div>
+                </div>
+
+                {/* Exit Price - Prominent */}
+                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] p-6 rounded-xl border-2 border-gray-700 shadow-lg">
+                  <div className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Exit Price</div>
+                  <div className="text-4xl font-bold text-white">${selectedTrade.exit_price.toFixed(2)}</div>
+                </div>
+
+                {/* Shares - Prominent */}
+                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] p-6 rounded-xl border-2 border-gray-700 shadow-lg">
+                  <div className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Shares</div>
+                  <div className="text-4xl font-bold text-white">{selectedTrade.shares.toLocaleString()}</div>
+                </div>
+
+                {/* Cents P/L - Prominent */}
+                <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] p-6 rounded-xl border-2 border-gray-700 shadow-lg">
+                  <div className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Cents P/L</div>
+                  <div className={`text-4xl font-bold ${
+                    (selectedTrade.exit_price - selectedTrade.entry_price) >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+                  }`}>
+                    {(selectedTrade.exit_price - selectedTrade.entry_price) >= 0 ? '+' : ''}
+                    {(selectedTrade.exit_price - selectedTrade.entry_price).toFixed(2)}¢
+                  </div>
+                </div>
+              </div>
+
+              {/* Profit/Loss Section */}
               <div className="mb-6 p-6 bg-[#0a0a0a] rounded-lg border border-gray-800">
-                <div className="text-sm text-gray-400 mb-2">Profit/Loss</div>
+                <div className="text-sm text-gray-400 mb-2">Total Profit/Loss</div>
                 <div className={`text-5xl font-bold ${
                   selectedTrade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
                 }`}>
                   {selectedTrade.profit_loss >= 0 ? '+' : ''}${selectedTrade.profit_loss.toFixed(2)}
                 </div>
-                <div className="mt-2 text-sm text-gray-500">
-                  Cents P/L: <span className={`font-semibold ${
-                    (selectedTrade.exit_price - selectedTrade.entry_price) >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
-                  }`}>
-                    {(selectedTrade.exit_price - selectedTrade.entry_price) >= 0 ? '+' : ''}
-                    {(selectedTrade.exit_price - selectedTrade.entry_price).toFixed(2)}¢
-                  </span>
-                </div>
               </div>
 
-              {/* Trade Details Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                  <div className="text-xs text-gray-500 mb-1">Entry Price</div>
-                  <div className="text-2xl font-bold text-white">${selectedTrade.entry_price.toFixed(2)}</div>
-                </div>
-
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                  <div className="text-xs text-gray-500 mb-1">Exit Price</div>
-                  <div className="text-2xl font-bold text-white">${selectedTrade.exit_price.toFixed(2)}</div>
-                </div>
-
-                <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                  <div className="text-xs text-gray-500 mb-1">Shares</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.shares}</div>
-                </div>
-
+              {/* Additional Trade Details Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Strategy</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.net_pl || 'N/A'}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.net_pl || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Setup Type</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.setup_type}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.setup_type || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Pullback Type</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.pullback_type}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.pullback_type || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Sector</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.sector}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.sector || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Float</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.float}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.float || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">News</div>
-                  <div className="text-2xl font-bold text-white">{selectedTrade.news ? 'Yes' : 'No'}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.news ? 'Yes' : 'No'}</div>
                 </div>
               </div>
 
@@ -491,7 +500,7 @@ function AllTrades({ trades, onUpdate, onDelete }) {
                   }}
                   className="px-4 py-2 bg-[#0a0a0a] border border-gray-700 text-[#a4fc3c] rounded-lg font-semibold hover:bg-[#2a2a2a] transition-colors"
                 >
-                  ✏️ Edit Trade
+                  Edit Trade
                 </button>
                 <button
                   onClick={(e) => {
@@ -500,7 +509,7 @@ function AllTrades({ trades, onUpdate, onDelete }) {
                   }}
                   className="px-4 py-2 bg-[#0a0a0a] border border-gray-700 text-red-400 rounded-lg font-semibold hover:bg-[#2a2a2a] transition-colors"
                 >
-                  🗑️ Delete Trade
+                  Delete Trade
                 </button>
               </div>
               <button
