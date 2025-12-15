@@ -2,6 +2,47 @@ import { useState } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { format, startOfWeek, startOfMonth, startOfYear, parseISO } from 'date-fns'
 
+// Custom tooltip for charts - defined outside component to avoid recreation on each render
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
+        <p className="text-white font-semibold mb-1">{label}</p>
+        {payload.map((entry, index) => (
+          <p key={index} className={`text-sm ${
+            entry.value >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+          }`}>
+            {entry.name}: {entry.value >= 0 ? '+' : ''}${entry.value.toFixed(2)}
+          </p>
+        ))}
+        {payload[0].payload.trades && (
+          <p className="text-xs text-gray-400 mt-1">
+            {payload[0].payload.trades} trades
+          </p>
+        )}
+      </div>
+    )
+  }
+  return null
+}
+
+const BalanceTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
+        <p className="text-white font-semibold mb-1">{payload[0].payload.date}</p>
+        <p className="text-[#a4fc3c] text-sm">
+          Balance: ${payload[0].value.toFixed(2)}
+        </p>
+        {payload[0].payload.trade && (
+          <p className="text-gray-400 text-xs mt-1">{payload[0].payload.trade}</p>
+        )}
+      </div>
+    )
+  }
+  return null
+}
+
 function Charts({ trades }) {
   // State for collapsible sections
   const [yearlyOpen, setYearlyOpen] = useState(false)
@@ -135,7 +176,7 @@ function Charts({ trades }) {
       balance: startingBalance
     }]
 
-    sortedTrades.forEach((trade, idx) => {
+    sortedTrades.forEach((trade) => {
       runningBalance += trade.profit_loss
       data.push({
         date: format(parseISO(trade.trade_date), 'MMM d'),
@@ -164,47 +205,6 @@ function Charts({ trades }) {
   const bestMonth = monthlyData.reduce((max, month) => 
     month.profitLoss > max.profitLoss ? month : max, monthlyData[0] || { profitLoss: 0 }
   )
-
-  // Custom tooltip for charts
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
-          <p className="text-white font-semibold mb-1">{label}</p>
-          {payload.map((entry, index) => (
-            <p key={index} className={`text-sm ${
-              entry.value >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
-            }`}>
-              {entry.name}: {entry.value >= 0 ? '+' : ''}${entry.value.toFixed(2)}
-            </p>
-          ))}
-          {payload[0].payload.trades && (
-            <p className="text-xs text-gray-400 mt-1">
-              {payload[0].payload.trades} trades
-            </p>
-          )}
-        </div>
-      )
-    }
-    return null
-  }
-
-  const BalanceTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
-          <p className="text-white font-semibold mb-1">{payload[0].payload.date}</p>
-          <p className="text-[#a4fc3c] text-sm">
-            Balance: ${payload[0].value.toFixed(2)}
-          </p>
-          {payload[0].payload.trade && (
-            <p className="text-gray-400 text-xs mt-1">{payload[0].payload.trade}</p>
-          )}
-        </div>
-      )
-    }
-    return null
-  }
 
   return (
     <div className="p-8">
