@@ -1,4 +1,4 @@
-function Sidebar({ currentView, onViewChange }) {
+function Sidebar({ currentView, onViewChange, isOpen = false, onClose }) {
   // Icon components
   const DashboardIcon = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -53,42 +53,71 @@ function Sidebar({ currentView, onViewChange }) {
   ]
 
   return (
-    <div className="w-64 bg-[#1a1a1a] text-white h-screen flex flex-col fixed left-0 top-0 border-r border-gray-800">
-      {/* Logo/Header */}
-      <div className="p-6 border-b border-gray-800">
-        <div className="flex items-center gap-2">
-          <TargetIcon className="w-6 h-6 text-[#a4fc3c]" />
-          <h1 className="text-2xl font-bold">TradeTracker</h1>
+    <>
+      {/* Mobile sidebar overlay */}
+      <div 
+        className={`fixed inset-0 bg-black/70 z-40 lg:hidden transition-opacity duration-300 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
+      
+      {/* Sidebar */}
+      <div className={`
+        w-64 bg-[#1a1a1a] text-white h-screen flex flex-col fixed left-0 top-0 border-r border-gray-800 z-50
+        transform transition-transform duration-300 ease-in-out
+        lg:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Logo/Header */}
+        <div className="p-4 md:p-6 border-b border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TargetIcon className="w-6 h-6 text-[#a4fc3c]" />
+            <h1 className="text-xl md:text-2xl font-bold">TradeTracker</h1>
+          </div>
+          {/* Close button for mobile */}
+          <button
+            onClick={onClose}
+            className="lg:hidden text-gray-400 hover:text-white transition-colors"
+            aria-label="Close menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <p className="text-xs text-gray-500 mt-1">Day Trading Journal</p>
-      </div>
+        <p className="text-xs text-gray-500 px-4 md:px-6 pb-4 md:pb-6 -mt-4">Day Trading Journal</p>
 
-      {/* Navigation Items */}
-      <nav className="flex-1 py-6">
-        {navItems.map((item) => {
-          const IconComponent = item.icon
-          return (
-            <button
-              key={item.id}
-              onClick={() => onViewChange(item.id)}
-              className={`w-full px-6 py-3 text-left flex items-center gap-3 transition-all ${
-                currentView === item.id
-                  ? 'bg-[#2a2a2a] border-l-4 border-[#a4fc3c] font-semibold text-[#a4fc3c]'
-                  : 'hover:bg-[#2a2a2a] text-gray-400 hover:text-white'
-              }`}
-            >
-              <IconComponent className="w-5 h-5" />
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-      </nav>
+        {/* Navigation Items */}
+        <nav className="flex-1 py-6">
+          {navItems.map((item) => {
+            const IconComponent = item.icon
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onViewChange(item.id)
+                  if (onClose) onClose() // Close sidebar on mobile after selection
+                }}
+                className={`w-full px-4 md:px-6 py-3 text-left flex items-center gap-3 transition-all ${
+                  currentView === item.id
+                    ? 'bg-[#2a2a2a] border-l-4 border-[#a4fc3c] font-semibold text-[#a4fc3c]'
+                    : 'hover:bg-[#2a2a2a] text-gray-400 hover:text-white'
+                }`}
+              >
+                <IconComponent className="w-5 h-5" />
+                <span className="text-sm md:text-base">{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-      {/* Footer */}
-      <div className="p-6 border-t border-gray-800 text-sm text-gray-500">
-        <p>Version 1.0.0</p>
+        {/* Footer */}
+        <div className="p-4 md:p-6 border-t border-gray-800 text-sm text-gray-500">
+          <p>Version 1.0.0</p>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

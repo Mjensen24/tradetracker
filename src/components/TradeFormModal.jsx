@@ -1,9 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import ErrorMessage from './ui/ErrorMessage'
+import LoadingSpinner from './ui/LoadingSpinner'
 
 const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isOpen, loading, onClose])
   
   // Form state
   const [formData, setFormData] = useState({
@@ -102,32 +118,32 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1a1a] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-800">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-[#1a1a1a] rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto border border-gray-800">
         {/* Header */}
-        <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-white">Add New Trade</h2>
+        <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Add New Trade</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            disabled={loading}
+            className="text-gray-400 hover:text-white text-2xl sm:text-3xl leading-none transition-colors disabled:opacity-50 flex-shrink-0"
+            aria-label="Close modal"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            ×
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
           {error && (
-            <div className="mb-6 bg-red-900/20 border border-red-500 rounded-lg p-4">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="mb-6">
+              <ErrorMessage message={error} onDismiss={() => setError(null)} />
             </div>
           )}
 
           {/* Basic Trade Information */}
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">
+          <div className="mb-6 md:mb-8">
+            <h3 className="text-lg md:text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
               Basic Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -141,7 +157,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   value={formData.trade_date}
                   onChange={handleChange}
                   required
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
 
@@ -173,7 +189,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   step="0.01"
                   min="0.01"
                   placeholder="14.50"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
 
@@ -190,7 +206,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   step="0.01"
                   min="0.01"
                   placeholder="15.20"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
 
@@ -206,7 +222,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   required
                   min="1"
                   placeholder="500"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
 
@@ -227,7 +243,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
 
           {/* Stock Details */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">
+            <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
               Stock Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -241,7 +257,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   value={formData.float}
                   onChange={handleChange}
                   placeholder="7M"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
 
@@ -255,7 +271,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   value={formData.sector}
                   onChange={handleChange}
                   placeholder="Finance"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
             </div>
@@ -263,7 +279,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
 
           {/* Trade Setup */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">
+            <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
               Trade Setup
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -275,7 +291,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   name="setup_quality"
                   value={formData.setup_quality}
                   onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 >
                   <option value="">Select Grade</option>
                   <option value="A">A - Excellent</option>
@@ -292,7 +308,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   name="strategy"
                   value={formData.strategy}
                   onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 >
                   <option value="">Select Strategy</option>
                   <option value="Momentum">Momentum</option>
@@ -311,7 +327,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   name="pullback_type"
                   value={formData.pullback_type}
                   onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 >
                   <option value="">Select Pullback</option>
                   <option value="1st Pull Back">1st Pull Back</option>
@@ -329,7 +345,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   name="setup_type"
                   value={formData.setup_type}
                   onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 >
                   <option value="">Select Setup</option>
                   <option value="1 Minute Setup">1 Minute Setup</option>
@@ -343,7 +359,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
 
           {/* Notes */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-white mb-4 border-b border-gray-800 pb-2">
+            <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
               Trade Notes
             </h3>
             <div className="grid grid-cols-1 gap-4">
@@ -357,7 +373,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   onChange={handleChange}
                   rows="3"
                   placeholder="Entry reasons, market conditions, emotions..."
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
 
@@ -371,7 +387,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   onChange={handleChange}
                   rows="3"
                   placeholder="Why did this trade win or lose? What can you learn?"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
+                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 />
               </div>
             </div>
@@ -383,16 +399,23 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-6 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="px-6 py-2 border border-gray-800 text-gray-300 rounded-lg hover:bg-[#2a2a2a] transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-[#a4fc3c] text-black font-semibold rounded-lg hover:bg-[#8fdd2f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-[#a4fc3c] text-black font-semibold rounded-lg hover:bg-[#8fdd2f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {loading ? 'Adding Trade...' : 'Add Trade'}
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Adding Trade...</span>
+                </>
+              ) : (
+                'Add Trade'
+              )}
             </button>
           </div>
         </form>

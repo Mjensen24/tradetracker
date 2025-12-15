@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters';
 
 function PositionCalculator({ currentBalance }) {
   const [entryPrice, setEntryPrice] = useState('');
@@ -40,22 +41,22 @@ function PositionCalculator({ currentBalance }) {
   const position = calculatePosition();
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-white">Position Calculator</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8 text-white">Position Calculator</h1>
 
         {/* Account Balance Card */}
-        <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-2 text-gray-400">Account Balance</h2>
-          <p className="text-4xl font-bold text-[#a4fc3c]">
-            ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-4 md:p-6 mb-4 md:mb-6">
+          <h2 className="text-lg md:text-xl font-semibold mb-2 text-white">Account Balance</h2>
+          <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
+            {formatCurrency(currentBalance)}
           </p>
-          <p className="text-sm text-gray-500 mt-1">Available Buying Power (100%)</p>
+          <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Available Buying Power (100%)</p>
         </div>
 
         {/* Entry Details Card */}
-        <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4 text-white">Entry Details</h2>
+        <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-4 md:p-6 mb-4 md:mb-6">
+          <h2 className="text-lg md:text-xl font-semibold mb-4 text-white">Entry Details</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -67,7 +68,7 @@ function PositionCalculator({ currentBalance }) {
                 step="0.01"
                 value={entryPrice}
                 onChange={(e) => setEntryPrice(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-md text-white focus:ring-2 focus:ring-[#a4fc3c] focus:border-transparent"
+                className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 placeholder="0.00"
               />
             </div>
@@ -81,7 +82,7 @@ function PositionCalculator({ currentBalance }) {
                 step="0.1"
                 value={stopPercent}
                 onChange={(e) => setStopPercent(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-md text-white focus:ring-2 focus:ring-[#a4fc3c] focus:border-transparent"
+                className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
                 placeholder="2.0"
               />
             </div>
@@ -91,72 +92,72 @@ function PositionCalculator({ currentBalance }) {
         {position && (
           <>
             {/* Position Size Card */}
-            <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 p-6 mb-6">
-              <h2 className="text-lg font-semibold mb-2 text-gray-400">Position Size</h2>
-              <p className="text-4xl font-bold text-[#a4fc3c]">
-                {position.shares.toLocaleString()} shares
+            <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-4 md:p-6 mb-4 md:mb-6">
+              <h2 className="text-lg md:text-xl font-semibold mb-2 text-white">Position Size</h2>
+              <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
+                {formatNumber(position.shares)} shares
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Total Value: ${(position.shares * parseFloat(entryPrice)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">
+                Total Value: {formatCurrency(position.shares * parseFloat(entryPrice))}
               </p>
             </div>
 
             {/* Risk/Reward Card */}
-            <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 p-6">
-              <h2 className="text-lg font-semibold mb-6 text-white">Risk/Reward Levels (1:2 Ratio)</h2>
+            <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-6 text-white">Risk/Reward Levels (1:2 Ratio)</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {/* Stop Loss */}
-                <div className="bg-[#0a0a0a] rounded-lg p-5 border-l-4 border-red-500">
-                  <p className="text-sm font-medium text-gray-400 mb-2">Stop Loss</p>
-                  <p className="text-3xl font-bold text-red-500 mb-4">
-                    ${position.stopLoss.toFixed(2)}
+                <div className="bg-[#0a0a0a] rounded-lg p-3 md:p-4 border-l-4 border-red-500">
+                  <p className="text-xs md:text-sm font-medium text-gray-400 mb-2">Stop Loss</p>
+                  <p className="text-2xl md:text-3xl font-bold text-red-500 mb-3 md:mb-4">
+                    {formatCurrency(position.stopLoss)}
                   </p>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400">Risk per share:</span>
                       <span className="text-sm font-semibold text-red-500">
-                        ${position.riskPerShare.toFixed(2)}
+                        {formatCurrency(position.riskPerShare)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400">Total Risk:</span>
                       <span className="text-sm font-semibold text-red-500">
-                        ${position.totalRisk.toFixed(2)}
+                        {formatCurrency(position.totalRisk)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-gray-800">
                       <span className="text-sm text-gray-400">Risk % of Account:</span>
                       <span className="text-sm font-semibold text-white">
-                        {((position.totalRisk / currentBalance) * 100).toFixed(2)}%
+                        {formatPercent((position.totalRisk / currentBalance) * 100, 2)}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Profit Target */}
-                <div className="bg-[#0a0a0a] rounded-lg p-5 border-l-4 border-[#a4fc3c]">
-                  <p className="text-sm font-medium text-gray-400 mb-2">Profit Target</p>
-                  <p className="text-3xl font-bold text-[#a4fc3c] mb-4">
-                    ${position.profitTarget.toFixed(2)}
+                <div className="bg-[#0a0a0a] rounded-lg p-3 md:p-4 border-l-4 border-[#a4fc3c]">
+                  <p className="text-xs md:text-sm font-medium text-gray-400 mb-2">Profit Target</p>
+                  <p className="text-2xl md:text-3xl font-bold text-[#a4fc3c] mb-3 md:mb-4">
+                    {formatCurrency(position.profitTarget)}
                   </p>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400">Reward per share:</span>
                       <span className="text-sm font-semibold text-[#a4fc3c]">
-                        ${position.rewardPerShare.toFixed(2)}
+                        {formatCurrency(position.rewardPerShare)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400">Total Reward:</span>
                       <span className="text-sm font-semibold text-[#a4fc3c]">
-                        ${position.totalReward.toFixed(2)}
+                        {formatCurrency(position.totalReward)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-gray-800">
                       <span className="text-sm text-gray-400">Reward % of Account:</span>
                       <span className="text-sm font-semibold text-white">
-                        {((position.totalReward / currentBalance) * 100).toFixed(2)}%
+                        {formatPercent((position.totalReward / currentBalance) * 100, 2)}
                       </span>
                     </div>
                   </div>
@@ -164,10 +165,10 @@ function PositionCalculator({ currentBalance }) {
               </div>
 
               {/* Summary */}
-              <div className="mt-6 p-4 bg-[#0a0a0a] rounded-md border border-gray-800">
-                <p className="text-sm text-gray-300">
+              <div className="mt-4 md:mt-6 p-3 md:p-4 bg-[#0a0a0a] rounded-md border border-gray-800">
+                <p className="text-xs md:text-sm text-gray-300">
                   <span className="font-semibold text-white">Risk/Reward Ratio:</span> 1:2 
-                  <span className="text-gray-500"> (Risking ${position.totalRisk.toFixed(2)} to make ${position.totalReward.toFixed(2)})</span>
+                  <span className="text-gray-400"> (Risking {formatCurrency(position.totalRisk)} to make {formatCurrency(position.totalReward)})</span>
                 </p>
               </div>
             </div>

@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts'
 import { format, startOfWeek, startOfMonth, startOfYear, parseISO, subDays } from 'date-fns'
+import { formatDateChart, formatCurrency, formatPercent } from '../utils/formatters'
 
 // Custom tooltip for charts - defined outside component to avoid recreation on each render
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
+      <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 shadow-lg">
         <p className="text-white font-semibold mb-1">{label}</p>
         {payload.map((entry, index) => (
           <p key={index} className={`text-sm ${
             entry.value >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
           }`}>
-            {entry.name}: {entry.value >= 0 ? '+' : ''}${entry.value.toFixed(2)}
+            {entry.name}: {formatCurrency(entry.value, true)}
           </p>
         ))}
         {payload[0].payload.trades && (
@@ -29,10 +30,10 @@ const CustomTooltip = ({ active, payload, label }) => {
 const BalanceTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
+      <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 shadow-lg">
         <p className="text-white font-semibold mb-1">{payload[0].payload.date}</p>
         <p className="text-[#a4fc3c] text-sm">
-          Balance: ${payload[0].value.toFixed(2)}
+          Balance: {formatCurrency(payload[0].value)}
         </p>
         {payload[0].payload.trade && (
           <p className="text-gray-400 text-xs mt-1">{payload[0].payload.trade}</p>
@@ -47,13 +48,13 @@ const StrategyTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
     return (
-      <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
+      <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 shadow-lg">
         <p className="text-white font-semibold mb-2">{data.name || 'Unknown Strategy'}</p>
         <p className={`text-sm mb-1 ${data.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-          Total P/L: {data.totalPL >= 0 ? '+' : ''}${data.totalPL.toFixed(2)}
+          Total P/L: {formatCurrency(data.totalPL, true)}
         </p>
         <p className="text-gray-300 text-sm mb-1">
-          Win Rate: {data.winRate.toFixed(1)}%
+          Win Rate: {formatPercent(data.winRate, 1)}
         </p>
         <p className="text-gray-400 text-xs">
           {data.tradeCount} trades ({data.wins}W / {data.losses}L)
@@ -68,14 +69,14 @@ const WinRateTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
     return (
-      <div className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-3 shadow-lg">
+      <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 shadow-lg">
         <p className="text-white font-semibold mb-2">{data.period}</p>
         <p className="text-[#a4fc3c] text-sm mb-1">
-          Win Rate: {data.winRate.toFixed(1)}%
+          Win Rate: {formatPercent(data.winRate, 1)}
         </p>
         {data.rollingWinRate !== undefined && (
           <p className="text-gray-300 text-sm mb-1">
-            Rolling Avg: {data.rollingWinRate.toFixed(1)}%
+            Rolling Avg: {formatPercent(data.rollingWinRate, 1)}
           </p>
         )}
         <p className="text-gray-400 text-xs mt-1">
@@ -199,7 +200,7 @@ function Charts({ trades }) {
 
       if (!dailyMap[dateKey]) {
         dailyMap[dateKey] = {
-          date: format(parseISO(trade.trade_date), 'MMM d'),
+          date: formatDateChart(trade.trade_date),
           fullDate: trade.trade_date,
           profitLoss: 0,
           trades: 0
@@ -232,9 +233,9 @@ function Charts({ trades }) {
     sortedTrades.forEach((trade) => {
       runningBalance += trade.profit_loss
       data.push({
-        date: format(parseISO(trade.trade_date), 'MMM d'),
+        date: formatDateChart(trade.trade_date),
         balance: runningBalance,
-        trade: `${trade.ticker} ${trade.profit_loss >= 0 ? '+' : ''}$${trade.profit_loss.toFixed(2)}`
+        trade: `${trade.ticker} ${formatCurrency(trade.profit_loss, true)}`
       })
     })
 
@@ -422,10 +423,10 @@ function Charts({ trades }) {
     const improvementPercent = firstHalfAvg > 0 ? (improvement / firstHalfAvg) * 100 : 0
 
     return {
-      firstHalfAvg: firstHalfAvg.toFixed(1),
-      secondHalfAvg: secondHalfAvg.toFixed(1),
-      improvement: improvement.toFixed(1),
-      improvementPercent: improvementPercent.toFixed(1),
+      firstHalfAvg: formatPercent(firstHalfAvg, 1),
+      secondHalfAvg: formatPercent(secondHalfAvg, 1),
+      improvement: formatPercent(improvement, 1),
+      improvementPercent: formatPercent(improvementPercent, 1),
       isImproving: improvement > 0
     }
   }
@@ -500,48 +501,48 @@ function Charts({ trades }) {
   )
 
   return (
-    <div className="p-8">
-      <h2 className="text-3xl font-bold text-white mb-8">Trading Performance Analytics</h2>
+    <div className="p-4 md:p-6 lg:p-8">
+      <h2 className="text-2xl md:text-3xl font-bold text-white mb-6 md:mb-8">Trading Performance Analytics</h2>
 
       {/* Summary Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 border border-gray-800">
-          <div className="text-sm text-gray-400 mb-2">Total P/L</div>
-          <div className={`text-3xl font-bold ${totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-            {totalPL >= 0 ? '+' : ''}${totalPL.toFixed(2)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 border border-gray-800">
+          <div className="text-xs md:text-sm text-gray-400 mb-2">Total P/L</div>
+          <div className={`text-2xl md:text-3xl font-bold ${totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+            {formatCurrency(totalPL, true)}
           </div>
-          <div className="text-sm text-gray-500 mt-2">{trades.length} total trades</div>
+          <div className="text-xs md:text-sm text-gray-500 mt-2">{trades.length} total trades</div>
         </div>
 
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 border border-gray-800">
-          <div className="text-sm text-gray-400 mb-2">Best Day</div>
-          <div className="text-3xl font-bold text-[#a4fc3c]">
-            +${bestDay?.profitLoss?.toFixed(2) || '0.00'}
+        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 border border-gray-800">
+          <div className="text-xs md:text-sm text-gray-400 mb-2">Best Day</div>
+          <div className="text-2xl md:text-3xl font-bold text-[#a4fc3c]">
+            {bestDay?.profitLoss ? formatCurrency(bestDay.profitLoss, true) : formatCurrency(0)}
           </div>
-          <div className="text-sm text-gray-500 mt-2">{bestDay?.date || 'N/A'}</div>
+          <div className="text-xs md:text-sm text-gray-500 mt-2">{bestDay?.date || 'N/A'}</div>
         </div>
 
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 border border-gray-800">
-          <div className="text-sm text-gray-400 mb-2">Worst Day</div>
-          <div className="text-3xl font-bold text-red-400">
-            ${worstDay?.profitLoss?.toFixed(2) || '0.00'}
+        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 border border-gray-800">
+          <div className="text-xs md:text-sm text-gray-400 mb-2">Worst Day</div>
+          <div className="text-2xl md:text-3xl font-bold text-red-400">
+            {worstDay?.profitLoss ? formatCurrency(worstDay.profitLoss) : formatCurrency(0)}
           </div>
-          <div className="text-sm text-gray-500 mt-2">{worstDay?.date || 'N/A'}</div>
+          <div className="text-xs md:text-sm text-gray-500 mt-2">{worstDay?.date || 'N/A'}</div>
         </div>
 
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 border border-gray-800">
-          <div className="text-sm text-gray-400 mb-2">Best Month</div>
-          <div className="text-3xl font-bold text-[#a4fc3c]">
-            +${bestMonth?.profitLoss?.toFixed(2) || '0.00'}
+        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 border border-gray-800">
+          <div className="text-xs md:text-sm text-gray-400 mb-2">Best Month</div>
+          <div className="text-2xl md:text-3xl font-bold text-[#a4fc3c]">
+            {bestMonth?.profitLoss ? formatCurrency(bestMonth.profitLoss, true) : formatCurrency(0)}
           </div>
-          <div className="text-sm text-gray-500 mt-2">{bestMonth?.month || 'N/A'}</div>
+          <div className="text-xs md:text-sm text-gray-500 mt-2">{bestMonth?.month || 'N/A'}</div>
         </div>
       </div>
 
       {/* Account Balance Chart */}
-      <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 mb-8 border border-gray-800">
-        <h3 className="text-xl font-bold text-white mb-6">Account Balance Over Time</h3>
-        <ResponsiveContainer width="100%" height={300}>
+      <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 mb-6 md:mb-8 border border-gray-800">
+        <h3 className="text-lg md:text-xl font-bold text-white mb-4 md:mb-6">Account Balance Over Time</h3>
+        <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
           <LineChart data={cumulativeData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
             <XAxis 
@@ -568,15 +569,15 @@ function Charts({ trades }) {
       </div>
 
       {/* Profit/Loss Chart with Time Frame Selector */}
-      <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 mb-8 border border-gray-800">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-white">{getTimeFrameLabel()} Profit/Loss</h3>
+      <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 mb-6 md:mb-8 border border-gray-800">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 md:mb-6">
+          <h3 className="text-lg md:text-xl font-bold text-white">{getTimeFrameLabel()} Profit/Loss</h3>
           
           {/* Time Frame Selector */}
-          <div className="flex gap-2 bg-[#0a0a0a] rounded-lg p-1 border border-gray-800">
+          <div className="flex flex-wrap gap-2 bg-[#0a0a0a] rounded-lg p-1 border border-gray-800 w-full sm:w-auto">
             <button
               onClick={() => setTimeFrame('daily')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                 timeFrame === 'daily'
                   ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                   : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -586,7 +587,7 @@ function Charts({ trades }) {
             </button>
             <button
               onClick={() => setTimeFrame('weekly')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                 timeFrame === 'weekly'
                   ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                   : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -596,7 +597,7 @@ function Charts({ trades }) {
             </button>
             <button
               onClick={() => setTimeFrame('monthly')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                 timeFrame === 'monthly'
                   ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                   : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -606,7 +607,7 @@ function Charts({ trades }) {
             </button>
             <button
               onClick={() => setTimeFrame('yearly')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                 timeFrame === 'yearly'
                   ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                   : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -617,7 +618,7 @@ function Charts({ trades }) {
           </div>
         </div>
         
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={300} className="sm:h-[350px] md:h-[400px]">
           <BarChart data={timeFrameData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
             <XAxis 
@@ -646,14 +647,14 @@ function Charts({ trades }) {
         </ResponsiveContainer>
 
         {/* Breakdown section - adapts based on time frame */}
-        <div className="mt-6 pt-6 border-t border-gray-800">
+        <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-800">
           {timeFrame === 'daily' && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
               {timeFrameData.slice(-8).map((day, idx) => (
                 <div key={idx} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
                   <div className="text-xs text-gray-400 mb-1">{day.date}</div>
                   <div className={`font-bold text-lg ${day.profitLoss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                    {day.profitLoss >= 0 ? '+' : ''}${day.profitLoss.toFixed(2)}
+                    {formatCurrency(day.profitLoss, true)}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">{day.trades} trades</div>
                 </div>
@@ -667,7 +668,7 @@ function Charts({ trades }) {
                 <div key={idx} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
                   <div className="text-xs text-gray-400 mb-1">{week.week}</div>
                   <div className={`font-bold text-lg ${week.profitLoss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                    {week.profitLoss >= 0 ? '+' : ''}${week.profitLoss.toFixed(2)}
+                    {formatCurrency(week.profitLoss, true)}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
                     {week.wins}W / {week.losses}L
@@ -683,13 +684,13 @@ function Charts({ trades }) {
                 <div key={idx} className="bg-[#0a0a0a] rounded-lg p-4 border border-gray-800">
                   <div className="text-sm text-gray-400 mb-2">{month.month}</div>
                   <div className={`text-2xl font-bold ${month.profitLoss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                    {month.profitLoss >= 0 ? '+' : ''}${month.profitLoss.toFixed(2)}
+                    {formatCurrency(month.profitLoss, true)}
                   </div>
                   <div className="text-sm text-gray-500 mt-2">
                     {month.wins}W / {month.losses}L · {month.trades} trades
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
-                    {((month.wins / month.trades) * 100).toFixed(1)}% win rate
+                    {formatPercent((month.wins / month.trades) * 100, 1)} win rate
                   </div>
                 </div>
               ))}
@@ -702,13 +703,13 @@ function Charts({ trades }) {
                 <div key={idx} className="bg-[#0a0a0a] rounded-lg p-4 border border-gray-800">
                   <div className="text-sm text-gray-400 mb-2">{year.year}</div>
                   <div className={`text-2xl font-bold ${year.profitLoss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                    {year.profitLoss >= 0 ? '+' : ''}${year.profitLoss.toFixed(2)}
+                    {formatCurrency(year.profitLoss, true)}
                   </div>
                   <div className="text-sm text-gray-500 mt-2">
                     {year.wins}W / {year.losses}L · {year.trades} trades
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
-                    {((year.wins / year.trades) * 100).toFixed(1)}% win rate
+                    {formatPercent((year.wins / year.trades) * 100, 1)} win rate
                   </div>
                 </div>
               ))}
@@ -719,16 +720,16 @@ function Charts({ trades }) {
 
       {/* Win Rate Over Time Chart */}
       {winRateData.length > 0 && (
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 mb-8 border border-gray-800">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-white">Win Rate Over Time</h3>
-            
-            <div className="flex gap-4">
+        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 mb-6 md:mb-8 border border-gray-800">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 md:mb-6">
+            <h3 className="text-lg md:text-xl font-bold text-white">Win Rate Over Time</h3>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
               {/* Time Frame Selector */}
-              <div className="flex gap-2 bg-[#0a0a0a] rounded-lg p-1 border border-gray-800">
+              <div className="flex flex-wrap gap-2 bg-[#0a0a0a] rounded-lg p-1 border border-gray-800">
                 <button
                   onClick={() => setWinRateTimeFrame('daily')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                     winRateTimeFrame === 'daily'
                       ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                       : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -738,7 +739,7 @@ function Charts({ trades }) {
                 </button>
                 <button
                   onClick={() => setWinRateTimeFrame('weekly')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                     winRateTimeFrame === 'weekly'
                       ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                       : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -748,7 +749,7 @@ function Charts({ trades }) {
                 </button>
                 <button
                   onClick={() => setWinRateTimeFrame('monthly')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                     winRateTimeFrame === 'monthly'
                       ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                       : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -762,7 +763,7 @@ function Charts({ trades }) {
               <div className="flex gap-2 bg-[#0a0a0a] rounded-lg p-1 border border-gray-800">
                 <button
                   onClick={() => setRollingAverageType('10-trade')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                     rollingAverageType === '10-trade'
                       ? 'bg-[#3b82f6] text-white'
                       : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -772,7 +773,7 @@ function Charts({ trades }) {
                 </button>
                 <button
                   onClick={() => setRollingAverageType('30-day')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                     rollingAverageType === '30-day'
                       ? 'bg-[#3b82f6] text-white'
                       : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -784,7 +785,7 @@ function Charts({ trades }) {
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={400}>
+          <ResponsiveContainer width="100%" height={300} className="sm:h-[350px] md:h-[400px]">
             <LineChart data={winRateData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
               <XAxis 
@@ -828,8 +829,8 @@ function Charts({ trades }) {
 
           {/* Improvement Metrics */}
           {winRateImprovement && (
-            <div className="mt-6 pt-6 border-t border-gray-800">
-              <h4 className="text-lg font-semibold text-white mb-4">Improvement Analysis</h4>
+            <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-800">
+              <h4 className="text-base md:text-lg font-semibold text-white mb-4">Improvement Analysis</h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-[#0a0a0a] rounded-lg p-4 border border-gray-800">
                   <div className="text-xs text-gray-400 mb-1">First Half Avg</div>
@@ -871,11 +872,11 @@ function Charts({ trades }) {
                 <div key={idx} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
                   <div className="text-xs text-gray-400 mb-1">{period.period}</div>
                   <div className="text-xl font-bold text-[#a4fc3c] mb-1">
-                    {period.winRate.toFixed(1)}%
+                    {formatPercent(period.winRate, 1)}
                   </div>
                   {period.rollingWinRate !== undefined && (
                     <div className="text-xs text-blue-400 mb-1">
-                      Rolling: {period.rollingWinRate.toFixed(1)}%
+                      Rolling: {formatPercent(period.rollingWinRate, 1)}
                     </div>
                   )}
                   <div className="text-xs text-gray-500 mt-1">
@@ -890,15 +891,15 @@ function Charts({ trades }) {
 
       {/* Strategy Performance Chart */}
       {strategyData.length > 0 && (
-        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-6 mb-8 border border-gray-800">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-white">Strategy Performance</h3>
-            
+        <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 mb-6 md:mb-8 border border-gray-800">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 md:mb-6">
+            <h3 className="text-lg md:text-xl font-bold text-white">Strategy Performance</h3>
+
             {/* Chart Type Selector */}
             <div className="flex gap-2 bg-[#0a0a0a] rounded-lg p-1 border border-gray-800">
               <button
                 onClick={() => setStrategyChartType('bar')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                   strategyChartType === 'bar'
                     ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                     : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -908,7 +909,7 @@ function Charts({ trades }) {
               </button>
               <button
                 onClick={() => setStrategyChartType('pie')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-colors ${
                   strategyChartType === 'pie'
                     ? 'bg-[#a4fc3c] text-[#0a0a0a]'
                     : 'text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
@@ -921,7 +922,7 @@ function Charts({ trades }) {
 
           {strategyChartType === 'bar' ? (
             <>
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={300} className="sm:h-[350px] md:h-[400px]">
                 <BarChart data={strategyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                   <XAxis 
@@ -950,9 +951,9 @@ function Charts({ trades }) {
               </ResponsiveContainer>
               
               {/* Strategy Breakdown Table - Below bar chart */}
-              <div className="mt-6 pt-6 border-t border-gray-800">
-                <h4 className="text-lg font-semibold text-white mb-4">Strategy Breakdown</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-800">
+                <h4 className="text-base md:text-lg font-semibold text-white mb-4">Strategy Breakdown</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {strategyData.map((strategy, idx) => (
                     <div 
                       key={idx} 
@@ -972,7 +973,7 @@ function Charts({ trades }) {
                           <div className={`text-2xl font-bold ${
                             strategy.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
                           }`}>
-                            {strategy.totalPL >= 0 ? '+' : ''}${strategy.totalPL.toFixed(2)}
+                            {formatCurrency(strategy.totalPL, true)}
                           </div>
                         </div>
                         
@@ -980,7 +981,7 @@ function Charts({ trades }) {
                           <div>
                             <div className="text-xs text-gray-400 mb-1">Win Rate</div>
                             <div className="text-lg font-semibold text-white">
-                              {strategy.winRate.toFixed(1)}%
+                              {formatPercent(strategy.winRate, 1)}
                             </div>
                           </div>
                           <div>
@@ -1003,15 +1004,15 @@ function Charts({ trades }) {
           ) : (
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Pie Chart - Left Side */}
-              <div className="flex-shrink-0 lg:w-2/5">
-                <ResponsiveContainer width="100%" height={400}>
+              <div className="flex-shrink-0 lg:w-2/5 mb-6 lg:mb-0">
+                <ResponsiveContainer width="100%" height={300} className="sm:h-[350px] md:h-[400px]">
                   <PieChart>
                     <Pie
                       data={strategyData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name}: ${formatPercent(percent * 100, 0)}`}
                       outerRadius={140}
                       fill="#8884d8"
                       dataKey="totalPL"
@@ -1031,7 +1032,7 @@ function Charts({ trades }) {
               
               {/* Strategy Breakdown - Right Side */}
               <div className="flex-1 lg:w-3/5">
-                <h4 className="text-lg font-semibold text-white mb-4">Strategy Breakdown</h4>
+                <h4 className="text-base md:text-lg font-semibold text-white mb-4">Strategy Breakdown</h4>
                 <div className={`grid gap-3 ${
                   strategyData.length === 1 ? 'grid-cols-1' :
                   strategyData.length === 2 ? 'grid-cols-2' :
@@ -1057,7 +1058,7 @@ function Charts({ trades }) {
                           <div className={`text-xl font-bold ${
                             strategy.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
                           }`}>
-                            {strategy.totalPL >= 0 ? '+' : ''}${strategy.totalPL.toFixed(2)}
+                            {formatCurrency(strategy.totalPL, true)}
                           </div>
                         </div>
                         
@@ -1065,7 +1066,7 @@ function Charts({ trades }) {
                           <div>
                             <div className="text-xs text-gray-400 mb-0.5">Win Rate</div>
                             <div className="text-sm font-semibold text-white">
-                              {strategy.winRate.toFixed(1)}%
+                              {formatPercent(strategy.winRate, 1)}
                             </div>
                           </div>
                           <div>

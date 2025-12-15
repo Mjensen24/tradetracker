@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import Dashboard from './components/Dashboard'
 import Charts from './components/Charts'
@@ -7,6 +7,8 @@ import AllTrades from './components/AllTrades'
 import Settings from './components/Settings'
 import PositionCalculator from './components/PositionCalculator'
 import TradeFormModal from './components/TradeFormModal'
+import LoadingSpinner from './components/ui/LoadingSpinner'
+import ErrorMessage from './components/ui/ErrorMessage'
 import { useTrades, useAccount } from './hooks/useTrades'
 import { STARTING_BALANCE } from './constants/tradeOptions'
 import { calculateStats } from './utils/tradeCalculations'
@@ -14,6 +16,7 @@ import { calculateStats } from './utils/tradeCalculations'
 function App() {
   const [currentView, setCurrentView] = useState('dashboard')
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   
   // Fetch data from Supabase
   const { 
@@ -24,7 +27,7 @@ function App() {
     updateTrade,
     deleteTrade 
   } = useTrades()
-  const { account, loading: accountLoading, error: accountError } = useAccount()
+  const { account, loading: accountLoading, error: accountError, updateAccount } = useAccount()
 
   const loading = tradesLoading || accountLoading
   const error = tradesError || accountError
@@ -46,6 +49,23 @@ function App() {
     refetchTrades() // Refresh trades from database
   }
 
+  // Handle view change and close sidebar on mobile
+  const handleViewChange = (view) => {
+    setCurrentView(view)
+    setIsSidebarOpen(false) // Close sidebar on mobile when navigating
+  }
+
+  // Handle ESC key to close sidebar
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isSidebarOpen) {
+        setIsSidebarOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isSidebarOpen])
+
   // Render the appropriate view based on currentView
   const renderView = () => {
     // Show loading state
@@ -53,8 +73,7 @@ function App() {
       return (
         <div className="flex items-center justify-center h-[calc(100vh-73px)]">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#a4fc3c] mb-4"></div>
-            <p className="text-gray-400">Loading your trading data...</p>
+            <LoadingSpinner size="lg" text="Loading your trading data..." />
           </div>
         </div>
       )
@@ -64,10 +83,12 @@ function App() {
     if (error) {
       return (
         <div className="flex items-center justify-center h-[calc(100vh-73px)]">
-          <div className="bg-red-900/20 border border-red-500 rounded-lg p-6 max-w-md">
-            <h3 className="text-red-400 font-semibold mb-2">Error Loading Data</h3>
-            <p className="text-gray-300 text-sm mb-4">{error}</p>
-            <p className="text-gray-400 text-xs">
+          <div className="max-w-md">
+            <ErrorMessage 
+              message={error}
+              className="mb-4"
+            />
+            <p className="text-gray-400 text-xs text-center">
               Check your .env file and make sure Supabase credentials are correct.
             </p>
           </div>
@@ -88,7 +109,7 @@ function App() {
       case 'calculator':
         return <PositionCalculator currentBalance={stats?.currentBalance || startingBalance} />
       case 'settings':
-        return <Settings />
+        return <Settings account={account} onUpdateAccount={updateAccount} loading={accountLoading} />
       default:
         return <Dashboard trades={trades} stats={stats} />
     }
@@ -96,19 +117,45 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-[#0a0a0a]">
+      {/* Backdrop overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/70 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+      <Sidebar 
+        currentView={currentView} 
+        onViewChange={handleViewChange}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
       
       {/* Main Content Area */}
-      <div className="ml-64 flex-1">
+      <div className="ml-0 lg:ml-64 flex-1 w-full">
         {/* Top Header */}
-        <div className="bg-[#1a1a1a] border-b border-gray-800 px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white">Trade Tracker</h1>
+        <div className="bg-[#1a1a1a] border-b border-gray-800 px-4 md:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            {/* Hamburger Menu Button - visible on mobile/tablet */}
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="lg:hidden text-gray-400 hover:text-white transition-colors"
+              aria-label="Toggle menu"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 className="text-xl md:text-2xl font-bold text-white">Trade Tracker</h1>
+          </div>
           <button 
             onClick={() => setIsTradeModalOpen(true)}
-            className="bg-[#a4fc3c] text-black px-6 py-2 rounded-lg font-semibold hover:bg-[#8fdd2f] transition-colors"
+            className="bg-[#a4fc3c] text-black px-4 md:px-6 py-2 rounded-lg font-semibold hover:bg-[#8fdd2f] transition-colors text-sm md:text-base"
           >
-            + Add Trade
+            <span className="hidden sm:inline">+ Add Trade</span>
+            <span className="sm:hidden">+ Add</span>
           </button>
         </div>
 

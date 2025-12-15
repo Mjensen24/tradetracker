@@ -128,5 +128,28 @@ export const useAccount = () => {
     }
   };
 
-  return { account, loading, error, refetch: fetchAccount };
+  const updateAccount = async (updatedData) => {
+    try {
+      if (!account?.id) {
+        throw new Error('No account found to update');
+      }
+
+      const { data, error: updateError } = await supabase
+        .from('accounts')
+        .update(updatedData)
+        .eq('id', account.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      setAccount(data);
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error updating account:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  return { account, loading, error, refetch: fetchAccount, updateAccount };
 };
