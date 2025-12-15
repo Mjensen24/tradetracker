@@ -70,7 +70,7 @@ export const calculateStats = (trades, startingBalance) => {
     : { quality: 'N/A', winRate: 0, avgPL: 0 };
   
   // Strategy Analysis
-  const strategies = [...new Set(trades.map(t => t.strategy))];
+  const strategies = [...new Set(trades.map(t => t.strategy).filter(Boolean))];
   const strategyStats = strategies.map(strategy => {
     const strategyTrades = trades.filter(t => t.strategy === strategy);
     return {
@@ -85,14 +85,15 @@ export const calculateStats = (trades, startingBalance) => {
     : { name: 'N/A', totalPL: 0 };
   
   // Sector Analysis
-  const sectors = [...new Set(trades.map(t => t.sector))];
+  const sectors = [...new Set(trades.map(t => t.sector).filter(Boolean))];
   const sectorStats = sectors.map(sector => {
     const sectorTrades = trades.filter(t => t.sector === sector);
-    const sectorWins = sectorTrades.filter(t => t.winLoss === 'W');
+    const sectorWins = sectorTrades.filter(t => t.win_loss === 'W');
     return {
       name: sector,
       winRate: sectorTrades.length > 0 ? (sectorWins.length / sectorTrades.length) * 100 : 0,
-      trades: sectorTrades.length
+      trades: sectorTrades.length,
+      totalPL: sectorTrades.reduce((sum, t) => sum + t.profit_loss, 0)
     };
   });
   
@@ -104,7 +105,7 @@ export const calculateStats = (trades, startingBalance) => {
   let maxConsecutiveLosses = 0;
   let currentConsecutiveLosses = 0;
   trades.forEach(trade => {
-    if (trade.winLoss === 'L') {
+    if (trade.win_loss === 'L') {
       currentConsecutiveLosses++;
       maxConsecutiveLosses = Math.max(maxConsecutiveLosses, currentConsecutiveLosses);
     } else {
@@ -140,6 +141,41 @@ const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
   const currentBalance = startingBalance + netPL;
   const roi = ((netPL / startingBalance) * 100);
   
+  // News vs No-News Analysis
+  const newsTrades = trades.filter(t => t.news === true);
+  const noNewsTrades = trades.filter(t => t.news === false);
+  const newsStats = {
+    trades: newsTrades.length,
+    winRate: newsTrades.length > 0 ? (newsTrades.filter(t => t.win_loss === 'W').length / newsTrades.length) * 100 : 0,
+    totalPL: newsTrades.reduce((sum, t) => sum + t.profit_loss, 0)
+  };
+  const noNewsStats = {
+    trades: noNewsTrades.length,
+    winRate: noNewsTrades.length > 0 ? (noNewsTrades.filter(t => t.win_loss === 'W').length / noNewsTrades.length) * 100 : 0,
+    totalPL: noNewsTrades.reduce((sum, t) => sum + t.profit_loss, 0)
+  };
+
+  // Best/Worst Ticker
+  const tickerMap = {};
+  trades.forEach(trade => {
+    if (!tickerMap[trade.ticker]) {
+      tickerMap[trade.ticker] = {
+        ticker: trade.ticker,
+        trades: 0,
+        totalPL: 0
+      };
+    }
+    tickerMap[trade.ticker].trades++;
+    tickerMap[trade.ticker].totalPL += trade.profit_loss;
+  });
+  const tickerStats = Object.values(tickerMap);
+  const bestTicker = tickerStats.length > 0
+    ? tickerStats.reduce((best, current) => current.totalPL > best.totalPL ? current : best)
+    : { ticker: 'N/A', totalPL: 0, trades: 0 };
+  const worstTicker = tickerStats.length > 0
+    ? tickerStats.reduce((worst, current) => current.totalPL < worst.totalPL ? current : worst)
+    : { ticker: 'N/A', totalPL: 0, trades: 0 };
+
   return {
     netPL,
     grossWins,
@@ -157,8 +193,15 @@ const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
     riskRewardRatio,
     bestSetup,
     worstSetup,
+    setupStats, // All setup quality stats
     bestStrategy,
+    strategyStats, // All strategy stats
     bestSector,
+    sectorStats, // All sector stats
+    bestTicker,
+    worstTicker,
+    newsStats,
+    noNewsStats,
     maxConsecutiveLosses,
     currentStreak: currentStreakDisplay,
     startingBalance,

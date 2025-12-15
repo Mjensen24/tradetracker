@@ -18,7 +18,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
     setup_quality: '',
     pullback_type: '',
     setup_type: '',
-    net_pl: '', // Strategy
+    strategy: '',
     notes: '',
     loser_winner_reason: ''
   })
@@ -56,7 +56,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
         setup_quality: formData.setup_quality || null,
         pullback_type: formData.pullback_type || null,
         setup_type: formData.setup_type || null,
-        net_pl: formData.net_pl || null,
+        strategy: formData.strategy || null,
         notes: formData.notes || null,
         loser_winner_reason: formData.loser_winner_reason || null
       }
@@ -82,7 +82,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
         setup_quality: '',
         pullback_type: '',
         setup_type: '',
-        net_pl: '',
+        strategy: '',
         notes: '',
         loser_winner_reason: ''
       })
@@ -289,8 +289,8 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                   Strategy
                 </label>
                 <select
-                  name="net_pl"
-                  value={formData.net_pl}
+                  name="strategy"
+                  value={formData.strategy}
                   onChange={handleChange}
                   className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
                 >
@@ -333,6 +333,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                 >
                   <option value="">Select Setup</option>
                   <option value="1 Minute Setup">1 Minute Setup</option>
+                  <option value="5 Minute Setup">5 Minute Setup</option>
                   <option value="10 Second Setup">10 Second Setup</option>
                   <option value="Halt">Halt</option>
                 </select>

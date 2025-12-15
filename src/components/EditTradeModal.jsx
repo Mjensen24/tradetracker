@@ -17,7 +17,7 @@ const EditTradeModal = ({ isOpen, onClose, trade, onUpdate }) => {
     setup_quality: '',
     pullback_type: '',
     setup_type: '',
-    net_pl: '',
+    strategy: '',
     notes: '',
     loser_winner_reason: ''
   })
@@ -37,7 +37,7 @@ const EditTradeModal = ({ isOpen, onClose, trade, onUpdate }) => {
         setup_quality: trade.setup_quality || '',
         pullback_type: trade.pullback_type || '',
         setup_type: trade.setup_type || '',
-        net_pl: trade.net_pl || '',
+        strategy: trade.strategy || '',
         notes: trade.notes || '',
         loser_winner_reason: trade.loser_winner_reason || ''
       })
@@ -76,7 +76,7 @@ const EditTradeModal = ({ isOpen, onClose, trade, onUpdate }) => {
         setup_quality: formData.setup_quality || null,
         pullback_type: formData.pullback_type || null,
         setup_type: formData.setup_type || null,
-        net_pl: formData.net_pl || null,
+        strategy: formData.strategy || null,
         notes: formData.notes || null,
         loser_winner_reason: formData.loser_winner_reason || null
       }
@@ -288,8 +288,8 @@ const EditTradeModal = ({ isOpen, onClose, trade, onUpdate }) => {
                   Strategy
                 </label>
                 <select
-                  name="net_pl"
-                  value={formData.net_pl}
+                  name="strategy"
+                  value={formData.strategy}
                   onChange={handleChange}
                   className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
                 >
@@ -332,6 +332,7 @@ const EditTradeModal = ({ isOpen, onClose, trade, onUpdate }) => {
                 >
                   <option value="">Select Setup</option>
                   <option value="1 Minute Setup">1 Minute Setup</option>
+                  <option value="5 Minute Setup">5 Minute Setup</option>
                   <option value="10 Second Setup">10 Second Setup</option>
                   <option value="Halt">Halt</option>
                 </select>

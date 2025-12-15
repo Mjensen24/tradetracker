@@ -203,9 +203,10 @@ function AllTrades({ trades, onUpdate, onDelete }) {
               className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#a4fc3c]"
             >
               <option value="">All Setups</option>
-              {uniqueSetupTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
+              <option value="1 Minute Setup">1 Minute Setup</option>
+              <option value="5 Minute Setup">5 Minute Setup</option>
+              <option value="10 Second Setup">10 Second Setup</option>
+              <option value="Halt">Halt</option>
             </select>
           </div>
 

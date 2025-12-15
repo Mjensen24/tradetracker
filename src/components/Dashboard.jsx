@@ -5,8 +5,8 @@ function Dashboard({ trades, stats }) {
   // Calculate additional stats for legacy compatibility
   const growthPercentage = stats.roi
 
-  // Get last 10 trades for better view
-  const recentTrades = trades.slice(-10).reverse()
+  // Get most recent 10 trades (trades are already sorted newest first)
+  const recentTrades = trades.slice(0, 10)
 
   // Generate balance growth data BY DAY
   const getBalanceGrowthData = () => {
@@ -137,84 +137,225 @@ function Dashboard({ trades, stats }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         
         {/* Performance Metrics */}
-        <div className="bg-[#1a1a1a] rounded-lg border border-gray-800">
+        <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 overflow-hidden">
           <div className="p-6 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white">Performance Metrics</h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Gross Wins</div>
-                <div className="text-2xl font-bold text-[#a4fc3c]">${stats.grossWins.toFixed(2)}</div>
+          <div className="p-6 space-y-4">
+            {/* Key Metrics - Large and Prominent */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-4 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Gross Wins</div>
+                <div className="text-3xl font-bold text-[#a4fc3c] mb-1">${stats.grossWins.toFixed(2)}</div>
+                <div className="text-xs text-gray-500">{stats.totalWins} wins</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Gross Losses</div>
-                <div className="text-2xl font-bold text-red-400">-${stats.grossLosses.toFixed(2)}</div>
+              <div className="bg-[#0a0a0a] rounded-lg p-4 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Gross Losses</div>
+                <div className="text-3xl font-bold text-red-400 mb-1">${Math.abs(stats.grossLosses).toFixed(2)}</div>
+                <div className="text-xs text-gray-500">{stats.totalLosses} losses</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Average Win</div>
-                <div className="text-2xl font-bold text-[#a4fc3c]">${stats.avgWin.toFixed(2)}</div>
+            </div>
+
+            {/* Secondary Metrics - Grouped by Type */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Avg Win</div>
+                <div className="text-xl font-bold text-[#a4fc3c]">${stats.avgWin.toFixed(2)}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Average Loss</div>
-                <div className="text-2xl font-bold text-red-400">-${Math.abs(stats.avgLoss).toFixed(2)}</div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Avg Loss</div>
+                <div className="text-xl font-bold text-red-400">${Math.abs(stats.avgLoss).toFixed(2)}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Largest Win</div>
-                <div className="text-2xl font-bold text-[#a4fc3c]">${stats.largestWin.toFixed(2)}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Largest Win</div>
+                <div className="text-xl font-bold text-[#a4fc3c]">${stats.largestWin.toFixed(2)}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Largest Loss</div>
-                <div className="text-2xl font-bold text-red-400">-${Math.abs(stats.largestLoss).toFixed(2)}</div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Largest Loss</div>
+                <div className="text-xl font-bold text-red-400">${Math.abs(stats.largestLoss).toFixed(2)}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">P&L Ratio</div>
-                <div className="text-2xl font-bold text-white">{stats.riskRewardRatio.toFixed(2)}:1</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">P&L Ratio</div>
+                <div className="text-xl font-bold text-white">{stats.riskRewardRatio.toFixed(2)}:1</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Expectancy</div>
-                <div className="text-2xl font-bold text-[#a4fc3c]">${stats.expectancy.toFixed(2)}</div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Expectancy</div>
+                <div className={`text-xl font-bold ${stats.expectancy >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                  ${stats.expectancy.toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            {/* Win/Loss Breakdown */}
+            <div>
+              <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Win/Loss Breakdown</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs text-gray-400">Total Wins</div>
+                    <div className="text-lg font-bold text-[#a4fc3c]">{stats.totalWins}</div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {stats.totalWins > 0 ? ((stats.totalWins / trades.length) * 100).toFixed(1) : 0}% of trades
+                  </div>
+                </div>
+                <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs text-gray-400">Total Losses</div>
+                    <div className="text-lg font-bold text-red-400">{stats.totalLosses}</div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {stats.totalLosses > 0 ? ((stats.totalLosses / trades.length) * 100).toFixed(1) : 0}% of trades
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Performance Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Profit Factor</div>
+                <div className={`text-xl font-bold ${stats.profitFactor >= 1 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                  {stats.profitFactor.toFixed(2)}
+                </div>
+              </div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Max Consecutive Losses</div>
+                <div className="text-xl font-bold text-red-400">{stats.maxConsecutiveLosses}</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Trading Analytics */}
-        <div className="bg-[#1a1a1a] rounded-lg border border-gray-800">
+        <div className="bg-[#1a1a1a] rounded-lg border border-gray-800 overflow-hidden">
           <div className="p-6 border-b border-gray-800">
             <h3 className="text-lg font-semibold text-white">Trading Analytics</h3>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Best Setup Quality</div>
-                <div className="text-2xl font-bold text-white mb-1">{stats.bestSetup.quality}</div>
-                <div className="text-xs text-gray-500">{stats.bestSetup.winRate.toFixed(1)}% WR</div>
+          <div className="p-6 space-y-4">
+            {/* Key Performance Metrics */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Win Rate</div>
+                <div className="text-2xl font-bold text-white">{stats.winRate.toFixed(1)}%</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Worst Setup Quality</div>
-                <div className="text-2xl font-bold text-white mb-1">{stats.worstSetup.quality}</div>
-                <div className="text-xs text-gray-500">{stats.worstSetup.winRate.toFixed(1)}% WR</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Best Strategy</div>
-                <div className="text-2xl font-bold text-white mb-1">{stats.bestStrategy.name}</div>
-                <div className="text-xs text-gray-500">${stats.bestStrategy.totalPL.toFixed(0)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Current Streak</div>
-                <div className="text-2xl font-bold text-white mb-1">{stats.currentStreak}</div>
-                <div className="text-xs text-gray-500">days traded</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Total Trades</div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Total Trades</div>
                 <div className="text-2xl font-bold text-white">{trades.length}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Max Losses in Row</div>
-                <div className="text-2xl font-bold text-red-400">{stats.maxConsecutiveLosses}</div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Current Streak</div>
+                <div className="text-2xl font-bold text-white">{stats.currentStreak}</div>
+                <div className="text-xs text-gray-500">days</div>
               </div>
             </div>
+
+            {/* Setup Quality Breakdown */}
+            <div>
+              <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Setup Quality Performance</div>
+              <div className="grid grid-cols-3 gap-4">
+                {['A', 'B', 'C'].map(quality => {
+                  const setup = stats.setupStats?.find(s => s.quality === quality);
+                  if (!setup) return null;
+                  return (
+                    <div key={quality} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-lg font-bold text-white">{quality}</div>
+                        <div className={`text-sm font-semibold ${setup.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                          {setup.totalPL >= 0 ? '+' : ''}${setup.totalPL.toFixed(0)}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {setup.winRate.toFixed(1)}% WR • {setup.trades} trades
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Strategy Breakdown */}
+            {stats.strategyStats && stats.strategyStats.length > 0 && (
+              <div>
+                <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Strategy Performance</div>
+                <div className="space-y-2">
+                  {stats.strategyStats.slice(0, 3).map((strategy, idx) => (
+                    <div key={idx} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-semibold text-white">{strategy.name}</div>
+                          <div className="text-xs text-gray-400">{strategy.trades} trades</div>
+                        </div>
+                        <div className={`text-lg font-bold ${strategy.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                          {strategy.totalPL >= 0 ? '+' : ''}${strategy.totalPL.toFixed(0)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Best/Worst Ticker & Sector */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Best Ticker</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-lg font-bold text-white">{stats.bestTicker?.ticker || 'N/A'}</div>
+                  {stats.bestTicker?.ticker !== 'N/A' && (
+                    <div className="text-sm font-semibold text-[#a4fc3c]">
+                      +${stats.bestTicker.totalPL.toFixed(0)}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {stats.bestSector && stats.bestSector.name !== 'N/A' && (
+                <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                  <div className="text-xs text-gray-400 mb-1">Best Sector</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-bold text-white">{stats.bestSector.name}</div>
+                    <div className="text-sm font-semibold text-[#a4fc3c]">
+                      {stats.bestSector.winRate.toFixed(1)}% WR
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* News vs No-News */}
+            {(stats.newsStats?.trades > 0 || stats.noNewsStats?.trades > 0) && (
+              <div>
+                <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">News Performance</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                    <div className="text-xs text-gray-400 mb-1">With News</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-300">{stats.newsStats.trades} trades</div>
+                      <div className={`text-sm font-semibold ${stats.newsStats.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                        {stats.newsStats.totalPL >= 0 ? '+' : ''}${stats.newsStats.totalPL.toFixed(0)}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{stats.newsStats.winRate.toFixed(1)}% WR</div>
+                  </div>
+                  <div className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
+                    <div className="text-xs text-gray-400 mb-1">No News</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-300">{stats.noNewsStats.trades} trades</div>
+                      <div className={`text-sm font-semibold ${stats.noNewsStats.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                        {stats.noNewsStats.totalPL >= 0 ? '+' : ''}${stats.noNewsStats.totalPL.toFixed(0)}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{stats.noNewsStats.winRate.toFixed(1)}% WR</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -261,7 +402,7 @@ function Dashboard({ trades, stats }) {
       </div>
 
       {/* Recent Trades Table */}
-      <div className="bg-[#1a1a1a] rounded-lg border border-gray-800">
+      <div className="bg-[#1a1a1a] rounded-xl shadow-lg overflow-hidden border border-gray-800">
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <h3 className="text-lg font-semibold text-white">Recent Trades</h3>
           <span className="text-sm text-gray-500">Last 10 trades</span>
@@ -271,36 +412,39 @@ function Dashboard({ trades, stats }) {
           <table className="w-full">
             <thead className="bg-[#0a0a0a] border-b border-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shares</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quality</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Date</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Ticker</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Strategy</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Shares</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">P/L</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-400">Quality</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {recentTrades.map((trade) => (
-                <tr key={trade.id} className="hover:bg-[#0a0a0a] transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {new Date(trade.trade_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {recentTrades.map((trade, idx) => (
+                <tr 
+                  key={trade.id} 
+                  className={`${idx % 2 === 0 ? 'bg-[#1a1a1a]' : 'bg-[#0a0a0a]'} hover:bg-[#2a2a2a] transition-colors`}
+                >
+                  <td className="px-4 py-3 text-sm text-gray-300">
+                    {format(parseISO(trade.trade_date), 'MMM d, yyyy')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-white">
+                  <td className="px-4 py-3 text-sm font-semibold text-white">
                     {trade.ticker}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                  <td className="px-4 py-3 text-sm text-gray-300">
                     {trade.strategy}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                  <td className="px-4 py-3 text-sm text-gray-300">
                     {trade.shares}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold">
-                    <span className={trade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}>
-                      {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
-                    </span>
+                  <td className={`px-4 py-3 text-sm font-semibold ${
+                    trade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+                  }`}>
+                    {trade.profit_loss >= 0 ? '+' : ''}${trade.profit_loss.toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
                       trade.setup_quality === 'A' ? 'bg-[#a4fc3c]/20 text-[#a4fc3c]' :
                       trade.setup_quality === 'B' ? 'bg-yellow-500/20 text-yellow-400' :
                       'bg-red-500/20 text-red-400'
@@ -312,12 +456,6 @@ function Dashboard({ trades, stats }) {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="p-4 border-t border-gray-800">
-          <button className="w-full py-2 text-[#a4fc3c] hover:text-white text-sm font-medium transition-colors">
-            View All Trades →
-          </button>
         </div>
       </div>
     </div>
