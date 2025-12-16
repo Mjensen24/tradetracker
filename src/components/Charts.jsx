@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area, ScatterChart, Scatter } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, AreaChart, Area, ScatterChart, Scatter, ReferenceLine } from 'recharts'
 import { format, startOfWeek, startOfMonth, startOfYear, parseISO, subDays } from 'date-fns'
 import { formatDateChart, formatCurrency, formatPercent } from '../utils/formatters'
 import { calculateStats, calculateCalendarInsights } from '../utils/tradeCalculations'
@@ -132,6 +132,7 @@ function Charts({ trades }) {
       if (!weekMap[weekKey]) {
         weekMap[weekKey] = {
           week: weekKey,
+          weekStart: weekStart, // Store actual date for sorting
           profitLoss: 0,
           trades: 0,
           wins: 0,
@@ -145,7 +146,7 @@ function Charts({ trades }) {
       else if (trade.profit_loss < 0) weekMap[weekKey].losses += 1
     })
 
-    return Object.values(weekMap)
+    return Object.values(weekMap).sort((a, b) => a.weekStart - b.weekStart)
   }
 
   // Process data for monthly chart
@@ -958,7 +959,7 @@ function Charts({ trades }) {
         </div>
         
         <ResponsiveContainer width="100%" height={300} className="sm:h-[350px] md:h-[400px]">
-          <BarChart data={timeFrameData}>
+          <BarChart data={timeFrameData} barCategoryGap={timeFrameData.length <= 3 ? '40%' : '20%'}>
             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
             <XAxis 
               dataKey={dataKey} 
@@ -973,8 +974,9 @@ function Charts({ trades }) {
               style={{ fontSize: '12px' }}
               tickFormatter={(value) => `$${value}`}
             />
+            <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-            <Bar dataKey="profitLoss" name="P/L" radius={[8, 8, 0, 0]}>
+            <Bar dataKey="profitLoss" name="P/L" radius={[8, 8, 0, 0]} maxBarSize={80}>
               {timeFrameData.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 

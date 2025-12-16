@@ -27,7 +27,17 @@ function App() {
     updateTrade,
     deleteTrade 
   } = useTrades()
-  const { account, loading: accountLoading, error: accountError, updateAccount } = useAccount()
+  const { 
+    account, 
+    allAccounts,
+    loading: accountLoading, 
+    error: accountError, 
+    updateAccount,
+    createAccount,
+    switchAccount,
+    renameAccount,
+    deleteAccount
+  } = useAccount()
 
   const loading = tradesLoading || accountLoading
   const error = tradesError || accountError
@@ -109,7 +119,19 @@ function App() {
       case 'calculator':
         return <PositionCalculator currentBalance={stats?.currentBalance || startingBalance} />
       case 'settings':
-        return <Settings account={account} onUpdateAccount={updateAccount} loading={accountLoading} />
+        return (
+          <Settings 
+            account={account} 
+            allAccounts={allAccounts}
+            onUpdateAccount={updateAccount}
+            onCreateAccount={createAccount}
+            onSwitchAccount={switchAccount}
+            onRenameAccount={renameAccount}
+            onDeleteAccount={deleteAccount}
+            onRefetchTrades={refetchTrades}
+            loading={accountLoading} 
+          />
+        )
       default:
         return <Dashboard trades={trades} stats={stats} />
     }

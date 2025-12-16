@@ -101,11 +101,13 @@ export const useTrades = () => {
 
 export const useAccount = () => {
   const [account, setAccount] = useState(null);
+  const [allAccounts, setAllAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchAccount();
+    fetchAllAccounts();
   }, []);
 
   const fetchAccount = async () => {
@@ -130,6 +132,23 @@ export const useAccount = () => {
     }
   };
 
+  const fetchAllAccounts = async () => {
+    try {
+      const { data, error: accountsError } = await supabase
+        .from('accounts')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (accountsError) throw accountsError;
+
+      setAllAccounts(data || []);
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error fetching all accounts:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   const updateAccount = async (updatedData) => {
     try {
       if (!account?.id) {
@@ -146,6 +165,7 @@ export const useAccount = () => {
       if (updateError) throw updateError;
 
       setAccount(data);
+      await fetchAllAccounts(); // Refresh all accounts list
       return { success: true, data };
     } catch (err) {
       console.error('Error updating account:', err);
@@ -153,5 +173,118 @@ export const useAccount = () => {
     }
   };
 
-  return { account, loading, error, refetch: fetchAccount, updateAccount };
+  const createAccount = async (name, startingBalance) => {
+    try {
+      const { data, error: createError } = await supabase
+        .from('accounts')
+        .insert({
+          name: name,
+          starting_balance: startingBalance,
+          is_default: false
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      await fetchAllAccounts(); // Refresh all accounts list
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error creating account:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const switchAccount = async (accountId) => {
+    try {
+      // First, unset all accounts as default
+      const { error: unsetError } = await supabase
+        .from('accounts')
+        .update({ is_default: false })
+        .neq('id', accountId);
+
+      if (unsetError) throw unsetError;
+
+      // Then set the selected account as default
+      const { data, error: setError } = await supabase
+        .from('accounts')
+        .update({ is_default: true })
+        .eq('id', accountId)
+        .select()
+        .single();
+
+      if (setError) throw setError;
+
+      setAccount(data);
+      await fetchAllAccounts(); // Refresh all accounts list
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error switching account:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const renameAccount = async (accountId, newName) => {
+    try {
+      const { data, error: updateError } = await supabase
+        .from('accounts')
+        .update({ name: newName })
+        .eq('id', accountId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Update local state if it's the current account
+      if (account?.id === accountId) {
+        setAccount(data);
+      }
+      await fetchAllAccounts(); // Refresh all accounts list
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error renaming account:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteAccount = async (accountId) => {
+    try {
+      // Prevent deleting the active account
+      if (account?.id === accountId) {
+        throw new Error('Cannot delete the active account. Please switch to another account first.');
+      }
+
+      // Check if this is the last account
+      if (allAccounts.length <= 1) {
+        throw new Error('Cannot delete the last account.');
+      }
+
+      const { error: deleteError } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', accountId);
+
+      if (deleteError) throw deleteError;
+
+      await fetchAllAccounts(); // Refresh all accounts list
+      return { success: true };
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  return { 
+    account, 
+    allAccounts,
+    loading, 
+    error, 
+    refetch: fetchAccount, 
+    refetchAll: fetchAllAccounts,
+    updateAccount,
+    createAccount,
+    switchAccount,
+    renameAccount,
+    deleteAccount
+  };
 };

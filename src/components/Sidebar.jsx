@@ -70,23 +70,25 @@ function Sidebar({ currentView, onViewChange, isOpen = false, onClose }) {
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo/Header */}
-        <div className="p-4 md:p-6 border-b border-gray-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TargetIcon className="w-6 h-6 text-[#a4fc3c]" />
-            <h1 className="text-xl md:text-2xl font-bold">TradeTracker</h1>
+        <div className="px-4 md:px-6 py-4 border-b border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TargetIcon className="w-6 h-6 text-[#a4fc3c]" />
+              <h1 className="text-xl md:text-2xl font-bold">TradeTracker</h1>
+            </div>
+            {/* Close button for mobile */}
+            <button
+              onClick={onClose}
+              className="lg:hidden text-gray-400 hover:text-white transition-colors"
+              aria-label="Close menu"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          {/* Close button for mobile */}
-          <button
-            onClick={onClose}
-            className="lg:hidden text-gray-400 hover:text-white transition-colors"
-            aria-label="Close menu"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <p className="text-xs text-gray-500 mt-1">Day Trading Journal</p>
         </div>
-        <p className="text-xs text-gray-500 px-4 md:px-6 pb-4 md:pb-6 -mt-4">Day Trading Journal</p>
 
         {/* Navigation Items */}
         <nav className="flex-1 py-6">
