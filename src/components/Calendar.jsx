@@ -130,9 +130,96 @@ function Calendar({ trades, onUpdate, onDelete }) {
     return yearTrades.reduce((sum, trade) => sum + trade.profit_loss, 0)
   }, [trades, currentMonth])
 
-  // Memoized: Calendar insights
+  // Memoized: Calendar insights (monthly)
   const insights = useMemo(() => {
     return calculateCalendarInsights(trades, currentMonth)
+  }, [trades, currentMonth])
+
+  // Memoized: Yearly insights
+  const yearlyInsights = useMemo(() => {
+    const yearStart = startOfYear(currentMonth)
+    const yearEnd = endOfYear(currentMonth)
+    
+    // Filter trades for current year
+    const yearTrades = trades.filter(trade => {
+      const tradeDate = parseISO(trade.trade_date)
+      return tradeDate >= yearStart && tradeDate <= yearEnd
+    })
+
+    if (yearTrades.length === 0) {
+      return {
+        currentStreak: { type: null, days: 0 },
+        bestDay: null,
+        worstDay: null,
+        mostActiveDay: null
+      }
+    }
+
+    // Group trades by date
+    const tradesByDate = {}
+    yearTrades.forEach(trade => {
+      if (!tradesByDate[trade.trade_date]) {
+        tradesByDate[trade.trade_date] = []
+      }
+      tradesByDate[trade.trade_date].push(trade)
+    })
+
+    // Calculate current streak (winning or losing days)
+    const sortedDates = Object.keys(tradesByDate).sort((a, b) => new Date(b) - new Date(a))
+    let currentStreak = { type: null, days: 0 }
+    
+    if (sortedDates.length > 0) {
+      let streakType = null
+      let streakDays = 0
+      
+      for (const date of sortedDates) {
+        const dayPL = tradesByDate[date].reduce((sum, t) => sum + t.profit_loss, 0)
+        const dayType = dayPL > 0 ? 'win' : dayPL < 0 ? 'loss' : null
+        
+        if (dayType && (streakType === null || streakType === dayType)) {
+          streakType = dayType
+          streakDays++
+        } else if (dayType && streakType !== dayType) {
+          break
+        }
+      }
+      
+      currentStreak = { type: streakType, days: streakDays }
+    }
+
+    // Find best and worst days
+    let bestDay = null
+    let worstDay = null
+    let mostActiveDay = null
+    let maxPL = -Infinity
+    let minPL = Infinity
+    let maxTrades = 0
+
+    Object.entries(tradesByDate).forEach(([date, dayTrades]) => {
+      const dayPL = dayTrades.reduce((sum, t) => sum + t.profit_loss, 0)
+      
+      if (dayPL > maxPL) {
+        maxPL = dayPL
+        bestDay = { date, pl: dayPL, trades: dayTrades.length }
+      }
+      
+      if (dayPL < minPL) {
+        minPL = dayPL
+        worstDay = { date, pl: dayPL, trades: dayTrades.length }
+      }
+      
+      if (dayTrades.length > maxTrades) {
+        maxTrades = dayTrades.length
+        mostActiveDay = { date, pl: dayPL, trades: dayTrades.length }
+      }
+    })
+
+    return {
+      currentStreak,
+      bestDay,
+      worstDay,
+      mostActiveDay
+    }
   }, [trades, currentMonth])
 
   // Memoized: Month comparison
@@ -518,8 +605,6 @@ function Calendar({ trades, onUpdate, onDelete }) {
                   key={dayIdx}
                   onClick={() => {
                     if (dayTrades.length > 0) {
-                      setCurrentMonth(month)
-                      setViewMode('month')
                       setSelectedDay(day)
                     }
                   }}
@@ -654,34 +739,36 @@ function Calendar({ trades, onUpdate, onDelete }) {
       {viewMode === 'month' && renderMonthView()}
       {viewMode === 'year' && renderYearView()}
 
-      {/* Month Stats - Sub-headers below calendar */}
+      {/* Stats/View Toggle Section - Sub-headers below calendar */}
       <div className="mt-6 md:mt-8 flex flex-col sm:flex-row justify-between items-start gap-4">
         {/* Stats on the left */}
-        {viewMode === 'month' && (
-          <div className="space-y-3 flex-1">
-            {/* Legend at the top */}
-            <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs sm:text-sm text-gray-400 pb-3 mb-3 border-b border-gray-800">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#a4fc3c] rounded"></div>
-                <span>Profitable Day</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-400 rounded"></div>
-                <span>Loss Day</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 sm:w-4 sm:h-4 ring-2 ring-[#a4fc3c] rounded"></div>
-                <span>Today</span>
-              </div>
-              <div className="text-gray-500 flex items-center gap-2 w-full sm:w-auto">
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <span>Click any day with trades to view details. Use arrow keys to navigate months.</span>
-              </div>
+        <div className="space-y-3 flex-1">
+          {/* Legend at the top */}
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs sm:text-sm text-gray-400 pb-3 mb-3 border-b border-gray-800">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 sm:w-4 sm:h-4 bg-[#a4fc3c] rounded"></div>
+              <span>Profitable Day</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-400 rounded"></div>
+              <span>Loss Day</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 sm:w-4 sm:h-4 ring-2 ring-[#a4fc3c] rounded"></div>
+              <span>Today</span>
+            </div>
+            <div className="text-gray-500 flex items-center gap-2 w-full sm:w-auto">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <span>Click any day with trades to view details. Use arrow keys to navigate {viewMode === 'year' ? 'years' : 'months'}.</span>
+            </div>
+          </div>
 
-            {/* Current Streak */}
+          {/* Month View Stats */}
+          {viewMode === 'month' && (
+            <>
+              {/* Current Streak */}
             {insights.currentStreak.days > 0 && (
               <div className="flex items-center gap-3 text-sm">
                 <span className="text-gray-400 font-medium">Current Streak:</span>
@@ -746,8 +833,63 @@ function Calendar({ trades, onUpdate, onDelete }) {
                 </span>
               </div>
             )}
-          </div>
-        )}
+            </>
+          )}
+
+          {/* Year View Stats */}
+          {viewMode === 'year' && (
+            <>
+              {/* Current Streak */}
+              {yearlyInsights.currentStreak.days > 0 && (
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-400 font-medium">Current Streak:</span>
+                  <span className={`font-semibold ${yearlyInsights.currentStreak.type === 'win' ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                    {yearlyInsights.currentStreak.days} day {yearlyInsights.currentStreak.type === 'win' ? 'winning' : 'losing'} streak
+                  </span>
+                </div>
+              )}
+
+              {/* Best Day */}
+              {yearlyInsights.bestDay && (
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-400 font-medium">Best Day:</span>
+                  <span className="font-semibold text-[#a4fc3c]">
+                    {formatCurrency(yearlyInsights.bestDay.pl, true)}
+                  </span>
+                  <span className="text-gray-500">
+                    ({formatDateShort(yearlyInsights.bestDay.date)})
+                  </span>
+                </div>
+              )}
+
+              {/* Worst Day */}
+              {yearlyInsights.worstDay && (
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-400 font-medium">Worst Day:</span>
+                  <span className="font-semibold text-red-400">
+                    {formatCurrency(yearlyInsights.worstDay.pl, true)}
+                  </span>
+                  <span className="text-gray-500">
+                    ({formatDateShort(yearlyInsights.worstDay.date)})
+                  </span>
+                </div>
+              )}
+
+              {/* Most Active Day */}
+              {yearlyInsights.mostActiveDay && (
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-gray-400 font-medium">Most Active:</span>
+                  <span className="font-semibold text-white">
+                    {yearlyInsights.mostActiveDay.trades} trades
+                  </span>
+                  <span className="text-gray-500">
+                    ({formatDateShort(yearlyInsights.mostActiveDay.date)})
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {/* View Mode Toggle on the right */}
         <div className="flex items-center gap-3">

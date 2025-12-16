@@ -24,11 +24,13 @@ export const useTrades = () => {
       if (accountError) throw accountError;
 
       // Get all trades for this account
+      // Sort by trade_date (most recent first), then by id (newer trades first) for same-day trades
       const { data: tradesData, error: tradesError } = await supabase
         .from('trades')
         .select('*')
         .eq('account_id', accountData.id)
-        .order('trade_date', { ascending: false });
+        .order('trade_date', { ascending: false })
+        .order('id', { ascending: false });
 
       if (tradesError) throw tradesError;
 

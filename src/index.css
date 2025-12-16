@@ -10,3 +10,51 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Recharts - Remove focus outline on click */
+.recharts-wrapper,
+.recharts-wrapper svg,
+.recharts-surface,
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Prevent Recharts from changing colors on hover - tooltip cursor */
+.recharts-tooltip-cursor {
+  fill: rgba(255, 255, 255, 0.03) !important;
+  stroke: none !important;
+}
+
+/* Bar chart hover cursor */
+.recharts-bar-cursor {
+  fill: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Darken shapes on hover with smooth transition */
+.recharts-bar-rectangle,
+.recharts-pie-sector path,
+.recharts-sector {
+  transition: filter 0.2s ease !important;
+}
+
+.recharts-bar-rectangle:hover,
+.recharts-pie-sector:hover path,
+.recharts-sector:hover {
+  filter: brightness(0.75) !important;
+}
+
+/* Scatter chart points */
+.recharts-symbols {
+  transition: filter 0.2s ease !important;
+}
+
+.recharts-symbols:hover {
+  filter: brightness(0.75) !important;
+}
+
+/* Legend items */
+.recharts-legend-item {
+  transition: opacity 0.25s ease !important;
+}

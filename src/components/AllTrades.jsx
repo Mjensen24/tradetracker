@@ -14,8 +14,12 @@ function AllTrades({ trades, onUpdate, onDelete }) {
     endDate: '',
     setupQuality: '',
     setupType: '',
-    winLoss: ''
+    winLoss: '',
+    pageSize: 20
   })
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Modal states
   const [selectedTrade, setSelectedTrade] = useState(null)
@@ -26,7 +30,7 @@ function AllTrades({ trades, onUpdate, onDelete }) {
 
   // Filter trades based on all selected filters
   const filteredTrades = useMemo(() => {
-    return trades.filter(trade => {
+    const filtered = trades.filter(trade => {
       if (filters.ticker && !trade.ticker.toLowerCase().includes(filters.ticker.toLowerCase())) {
         return false
       }
@@ -47,7 +51,27 @@ function AllTrades({ trades, onUpdate, onDelete }) {
       }
       return true
     })
+    
+    // Sort by trade_date (most recent first), then by id (newer trades first) for same-day trades
+    return filtered.sort((a, b) => {
+      const dateCompare = new Date(b.trade_date) - new Date(a.trade_date)
+      if (dateCompare !== 0) return dateCompare
+      // If dates are equal, sort by id (descending - newer trades first)
+      return b.id.localeCompare(a.id)
+    })
   }, [trades, filters])
+
+  // Reset to page 1 when filters change (except pageSize)
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filters.ticker, filters.startDate, filters.endDate, filters.setupQuality, filters.setupType, filters.winLoss])
+
+  // Calculate pagination
+  const pageSize = Number(filters.pageSize) || 20
+  const totalPages = Math.ceil(filteredTrades.length / pageSize)
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const paginatedTrades = filteredTrades.slice(startIndex, endIndex)
 
   // Calculate filtered stats
   const filteredStats = useMemo(() => {
@@ -71,8 +95,28 @@ function AllTrades({ trades, onUpdate, onDelete }) {
       endDate: '',
       setupQuality: '',
       setupType: '',
-      winLoss: ''
+      winLoss: '',
+      pageSize: 20
     })
+    setCurrentPage(1)
+  }
+
+  const handlePageSizeChange = (e) => {
+    const newPageSize = Number(e.target.value) || 20
+    setFilters(prev => ({ ...prev, pageSize: newPageSize }))
+    setCurrentPage(1)
+  }
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1)
+    }
+  }
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1)
+    }
   }
 
   // Check if any filters are active
@@ -249,10 +293,6 @@ function AllTrades({ trades, onUpdate, onDelete }) {
         {/* Filter Summary Stats */}
         <div className="mt-4 md:mt-6 pt-4 border-t border-gray-800 flex flex-col sm:flex-row flex-wrap gap-3 md:gap-6 items-start sm:items-center">
           <div className="text-xs md:text-sm">
-            <span className="text-gray-400">Showing:</span>
-            <span className="text-white font-semibold ml-2">{filteredStats.count} trades</span>
-          </div>
-          <div className="text-xs md:text-sm">
             <span className="text-gray-400">Total P/L:</span>
             <span className={`font-semibold ml-2 ${
               filteredStats.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
@@ -270,6 +310,12 @@ function AllTrades({ trades, onUpdate, onDelete }) {
             <span className="text-gray-400">W/L:</span>
             <span className="text-white font-semibold ml-2">
               {filteredStats.wins}W / {filteredStats.losses}L
+            </span>
+          </div>
+          <div className="text-xs md:text-sm sm:ml-auto">
+            <span className="text-gray-400">Showing:</span>
+            <span className="text-white font-semibold ml-2">
+              {filteredStats.count > 0 ? `${startIndex + 1}-${Math.min(endIndex, filteredStats.count)} of ${filteredStats.count}` : '0'} trades
             </span>
           </div>
           {hasActiveFilters && (
@@ -311,7 +357,7 @@ function AllTrades({ trades, onUpdate, onDelete }) {
         <>
           {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
-            {filteredTrades.map((trade) => {
+            {paginatedTrades.map((trade) => {
               const centsPL = trade.exit_price - trade.entry_price
               return (
                 <div
@@ -412,7 +458,7 @@ function AllTrades({ trades, onUpdate, onDelete }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                  {filteredTrades.map((trade, idx) => {
+                  {paginatedTrades.map((trade, idx) => {
                     const centsPL = trade.exit_price - trade.entry_price
                     return (
                       <tr
@@ -477,6 +523,57 @@ function AllTrades({ trades, onUpdate, onDelete }) {
               </table>
             </div>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredTrades.length > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-end gap-4">
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-400">Items per page:</label>
+                <select
+                  name="pageSize"
+                  value={filters.pageSize}
+                  onChange={handlePageSizeChange}
+                  className="bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-gray-400">
+                    Page <span className="text-white font-semibold">{currentPage}</span> of <span className="text-white font-semibold">{totalPages}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={goToPreviousPage}
+                      disabled={currentPage === 1}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                        currentPage === 1
+                          ? 'bg-[#0a0a0a] text-gray-600 cursor-not-allowed border border-gray-800'
+                          : 'bg-[#0a0a0a] text-white hover:bg-[#2a2a2a] border border-gray-700'
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={goToNextPage}
+                      disabled={currentPage === totalPages}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                        currentPage === totalPages
+                          ? 'bg-[#0a0a0a] text-gray-600 cursor-not-allowed border border-gray-800'
+                          : 'bg-[#a4fc3c] text-black hover:bg-[#8fdd2f] border border-[#a4fc3c]'
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -557,7 +654,7 @@ function AllTrades({ trades, onUpdate, onDelete }) {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                   <div className="text-xs text-gray-500 mb-1">Strategy</div>
-                  <div className="text-lg font-semibold text-white">{selectedTrade.net_pl || 'N/A'}</div>
+                  <div className="text-lg font-semibold text-white">{selectedTrade.strategy || 'N/A'}</div>
                 </div>
 
                 <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
