@@ -7,7 +7,26 @@ export const useTrades = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchTrades();
+    // Check if user is authenticated before fetching
+    const checkAuthAndFetch = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        fetchTrades();
+      } else {
+        setLoading(false);
+        setTrades([]);
+      }
+    };
+    checkAuthAndFetch();
+  }, []);
+
+  // Refetch trades when account changes (listen for account changes via custom event)
+  useEffect(() => {
+    const handleAccountChange = () => {
+      fetchTrades();
+    };
+    window.addEventListener('accountChanged', handleAccountChange);
+    return () => window.removeEventListener('accountChanged', handleAccountChange);
   }, []);
 
   const fetchTrades = async () => {
@@ -106,8 +125,19 @@ export const useAccount = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchAccount();
-    fetchAllAccounts();
+    // Check if user is authenticated before fetching
+    const checkAuthAndFetch = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        fetchAccount();
+        fetchAllAccounts();
+      } else {
+        setLoading(false);
+        setAccount(null);
+        setAllAccounts([]);
+      }
+    };
+    checkAuthAndFetch();
   }, []);
 
   const fetchAccount = async () => {
@@ -175,19 +205,44 @@ export const useAccount = () => {
 
   const createAccount = async (name, startingBalance) => {
     try {
+      // Get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      if (!session?.user) {
+        throw new Error('User not authenticated. Please log in to create an account.');
+      }
+
+      // Check if this is the first account (should be set as default)
+      const { data: existingAccounts, error: checkError } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', session.user.id);
+      
+      if (checkError) throw checkError;
+      
+      const isFirstAccount = !existingAccounts || existingAccounts.length === 0;
+
       const { data, error: createError } = await supabase
         .from('accounts')
         .insert({
           name: name,
           starting_balance: startingBalance,
-          is_default: false
+          is_default: isFirstAccount, // Set as default if it's the first account
+          user_id: session.user.id
         })
         .select()
         .single();
 
       if (createError) throw createError;
 
+      // If this is the first account, update the account state
+      if (isFirstAccount) {
+        setAccount(data);
+      }
+
       await fetchAllAccounts(); // Refresh all accounts list
+      await fetchAccount(); // Refresh the current account
       return { success: true, data };
     } catch (err) {
       console.error('Error creating account:', err);
@@ -217,6 +272,10 @@ export const useAccount = () => {
 
       setAccount(data);
       await fetchAllAccounts(); // Refresh all accounts list
+      
+      // Dispatch event to notify other components that account has changed
+      window.dispatchEvent(new CustomEvent('accountChanged'));
+      
       return { success: true, data };
     } catch (err) {
       console.error('Error switching account:', err);

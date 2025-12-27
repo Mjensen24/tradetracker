@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatCurrency } from '../utils/formatters'
+import { useAuth } from '../hooks/useAuth'
 import ErrorMessage from './ui/ErrorMessage'
 import LoadingSpinner from './ui/LoadingSpinner'
 
@@ -14,6 +15,7 @@ function Settings({
   onRefetchTrades,
   loading: accountLoading 
 }) {
+  const { signOut, user } = useAuth()
   // Account management state
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
@@ -512,6 +514,35 @@ function Settings({
           <p className="text-xs text-gray-500 mt-4 italic">
             Display preferences are currently using default formats. Customization options will be available in a future update.
           </p>
+        </div>
+      </div>
+
+      {/* Account Section */}
+      <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 mt-4 md:mt-6">
+        <div className="p-4 md:p-6 border-b border-gray-800">
+          <h3 className="text-lg md:text-xl font-semibold text-white">Account</h3>
+          <p className="text-xs md:text-sm text-gray-400 mt-1">Manage your account settings</p>
+        </div>
+        
+        <div className="p-4 md:p-6">
+          {user && (
+            <div className="mb-4 pb-4 border-b border-gray-800">
+              <div className="text-sm text-gray-400 mb-1">Signed in as</div>
+              <div className="text-white font-medium">{user.email}</div>
+            </div>
+          )}
+          <button
+            onClick={async () => {
+              const result = await signOut()
+              if (result.success) {
+                // The auth hook will handle redirecting to login
+                window.location.reload()
+              }
+            }}
+            className="w-full px-4 py-2 border border-red-900 text-red-400 rounded-lg hover:bg-red-900/20 transition-colors text-sm font-medium"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     </div>

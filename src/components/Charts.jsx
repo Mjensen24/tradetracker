@@ -1315,6 +1315,16 @@ function Charts({ trades }) {
       )}
 
       {/* Account Balance Chart */}
+      {(() => {
+        // Calculate Y-axis domain for better relative scaling
+        const balances = cumulativeData.map(d => d.balance)
+        const minBalance = Math.min(...balances)
+        const maxBalance = Math.max(...balances)
+        const range = maxBalance - minBalance
+        const padding = range > 0 ? range * 0.1 : Math.max(minBalance * 0.05, 100)
+        const yAxisDomain = [Math.max(0, minBalance - padding), maxBalance + padding]
+        
+        return (
       <div className="bg-[#1a1a1a] rounded-xl shadow-lg p-4 md:p-6 mb-6 md:mb-8 border border-gray-800">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 md:mb-6">
           <h3 className="text-lg md:text-xl font-bold text-white">Account Balance Over Time</h3>
@@ -1376,6 +1386,7 @@ function Charts({ trades }) {
               stroke="#666"
               style={{ fontSize: '12px' }}
               tickFormatter={(value) => `$${value}`}
+              domain={yAxisDomain}
             />
             <Tooltip 
               cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
@@ -1407,6 +1418,8 @@ function Charts({ trades }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+        )
+      })()}
 
       {/* Collapsible Section Toggle */}
       <div className="mb-6 md:mb-8">

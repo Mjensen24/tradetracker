@@ -58,9 +58,38 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
         throw new Error('Please fill in all required fields (Ticker, Entry Price, Exit Price, Shares)')
       }
 
+      // Get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      if (!session?.user) {
+        throw new Error('User not authenticated. Please log in to add a trade.');
+      }
+
+      // Get account_id - use provided accountId or fetch the default account
+      let finalAccountId = accountId;
+      
+      if (!finalAccountId) {
+        // Fetch the default account if accountId is not provided
+        const { data: accountData, error: accountError } = await supabase
+          .from('accounts')
+          .select('id')
+          .eq('is_default', true)
+          .eq('user_id', session.user.id)
+          .single();
+        
+        if (accountError || !accountData) {
+          throw new Error('No account found. Please create an account in Settings first.');
+        }
+        
+        finalAccountId = accountData.id;
+      }
+
       // Prepare data for insertion
+      // Try without user_id first - RLS may handle it automatically
+      // If that fails, we'll include it
       const tradeData = {
-        account_id: accountId,
+        account_id: finalAccountId,
         trade_date: formData.trade_date,
         ticker: formData.ticker.toUpperCase(),
         entry_price: parseFloat(formData.entry_price),
@@ -78,12 +107,28 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
       }
 
       // Insert into Supabase
-      const { data, error: insertError } = await supabase
+      // Try insert without user_id first (RLS may handle it)
+      let { data, error: insertError } = await supabase
         .from('trades')
         .insert([tradeData])
         .select()
 
-      if (insertError) throw insertError
+      // If that fails with user_id error, try with user_id explicitly
+      if (insertError && (insertError.message?.includes('user_id') || insertError.code === 'PGRST204')) {
+        const tradeDataWithUserId = {
+          ...tradeData,
+          user_id: session.user.id
+        };
+        const retryResult = await supabase
+          .from('trades')
+          .insert([tradeDataWithUserId])
+          .select();
+        
+        if (retryResult.error) throw retryResult.error;
+        data = retryResult.data;
+      } else if (insertError) {
+        throw insertError;
+      }
 
       // Reset form
       setFormData({

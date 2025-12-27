@@ -7,13 +7,29 @@ import AllTrades from './components/AllTrades'
 import Settings from './components/Settings'
 import PositionCalculator from './components/PositionCalculator'
 import TradeFormModal from './components/TradeFormModal'
+import Login from './components/Auth/Login'
+import ResetPassword from './components/Auth/ResetPassword'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import ErrorMessage from './components/ui/ErrorMessage'
 import { useTrades, useAccount } from './hooks/useTrades'
+import { useAuth } from './hooks/useAuth'
 import { STARTING_BALANCE } from './constants/tradeOptions'
 import { calculateStats } from './utils/tradeCalculations'
 
 function App() {
+  const { isAuthenticated, loading: authLoading } = useAuth()
+  
+  // Check if we're on a password reset page (has recovery token in URL hash)
+  const [isResetPassword, setIsResetPassword] = useState(false)
+  
+  useEffect(() => {
+    // Check URL hash for password reset token
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    if (type === 'recovery') {
+      setIsResetPassword(true);
+    }
+  }, []);
   const [currentView, setCurrentView] = useState('dashboard')
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -39,9 +55,6 @@ function App() {
     deleteAccount
   } = useAccount()
 
-  const loading = tradesLoading || accountLoading
-  const error = tradesError || accountError
-
   // Use account's starting balance or fallback to constant
   const startingBalance = account?.starting_balance || STARTING_BALANCE
 
@@ -49,10 +62,11 @@ function App() {
   const trades = supabaseTrades
 
   // Calculate stats using Supabase data
+  // Recalculate when trades or account changes
   const stats = useMemo(() => {
     if (trades.length === 0) return null
     return calculateStats(trades, startingBalance)
-  }, [trades, startingBalance])
+  }, [trades, startingBalance, account?.id])
 
   // Handle trade added
   const handleTradeAdded = () => {
@@ -75,6 +89,26 @@ function App() {
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isSidebarOpen])
+
+  const loading = authLoading || tradesLoading || accountLoading
+  const error = tradesError || accountError
+
+  // Show password reset screen if we have a reset token
+  if (isResetPassword) {
+    return (
+      <ResetPassword 
+        onSuccess={() => {
+          setIsResetPassword(false);
+          window.location.reload();
+        }} 
+      />
+    );
+  }
+
+  // Show login screen if not authenticated (after all hooks are called)
+  if (!authLoading && !isAuthenticated) {
+    return <Login />
+  }
 
   // Render the appropriate view based on currentView
   const renderView = () => {

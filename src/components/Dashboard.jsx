@@ -3,6 +3,31 @@ import { formatDateShort, formatDateChart, formatCurrency, formatPercent, format
 import QualityBadge from './ui/QualityBadge'
 
 function Dashboard({ trades, stats }) {
+  // Handle case when there are no trades yet
+  if (!stats || trades.length === 0) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-white">Dashboard</h2>
+        </div>
+        <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-8 md:p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h3 className="text-xl font-semibold text-white mb-2">No Trades Yet</h3>
+            <p className="text-gray-400 mb-6">
+              Start tracking your trading performance by adding your first trade.
+            </p>
+            <p className="text-sm text-gray-500">
+              Click the "+ Add Trade" button in the header to get started.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Calculate additional stats for legacy compatibility
   const growthPercentage = stats.roi
 
@@ -116,6 +141,16 @@ function Dashboard({ trades, stats }) {
           </div>
         </div>
         <div className="p-4 md:p-6">
+          {(() => {
+            // Calculate Y-axis domain for better relative scaling
+            const balances = balanceData.map(d => d.balance)
+            const minBalance = Math.min(...balances)
+            const maxBalance = Math.max(...balances)
+            const range = maxBalance - minBalance
+            const padding = range > 0 ? range * 0.1 : Math.max(minBalance * 0.05, 100)
+            const yAxisDomain = [Math.max(0, minBalance - padding), maxBalance + padding]
+            
+            return (
           <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <LineChart data={balanceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -128,6 +163,7 @@ function Dashboard({ trades, stats }) {
                   stroke="#666"
                   style={{ fontSize: '12px' }}
                   tickFormatter={(value) => `$${value}`}
+                  domain={yAxisDomain}
                 />
                 <Tooltip 
                   content={({ active, payload }) => {
@@ -157,6 +193,8 @@ function Dashboard({ trades, stats }) {
                 />
               </LineChart>
             </ResponsiveContainer>
+            )
+          })()}
         </div>
       </div>
 
