@@ -5,6 +5,7 @@ import QualityBadge from './ui/QualityBadge'
 import EditTradeModal from './EditTradeModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import { calculateCalendarInsights, compareMonths } from '../utils/tradeCalculations'
+import { useDayNotes } from '../hooks/useDayNotes'
 
 function Calendar({ trades, onUpdate, onDelete }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -15,6 +16,11 @@ function Calendar({ trades, onUpdate, onDelete }) {
   const [editTrade, setEditTrade] = useState(null)
   const [tradeToDelete, setTradeToDelete] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesText, setNotesText] = useState('')
+
+  // Day notes hook
+  const { currentNote, loading: notesLoading, error: notesError, saving: notesSaving, fetchDayNote, saveDayNote } = useDayNotes()
   const prevMonthButtonRef = useRef(null)
   const nextMonthButtonRef = useRef(null)
   const todayButtonRef = useRef(null)
@@ -233,11 +239,59 @@ function Calendar({ trades, onUpdate, onDelete }) {
     const stats = getDayStats(day)
     if (stats.hasData) {
       setSelectedDay(day)
+      setEditingNotes(false)
+      setNotesText('')
+    } else {
+      // For days without trades, we'll still open the modal if user wants to add notes
+      // But we need to check if there's already a note first
+      // We'll open the modal and let the useEffect fetch the note
+      setSelectedDay(day)
+      setEditingNotes(false)
+      setNotesText('')
     }
   }
 
   // Close modal
-  const closeModal = () => setSelectedDay(null)
+  const closeModal = () => {
+    setSelectedDay(null)
+    setEditingNotes(false)
+    setNotesText('')
+  }
+
+  // Handle notes editing
+  const handleStartEditNotes = () => {
+    setEditingNotes(true)
+    setNotesText(currentNote?.notes || '')
+  }
+
+  const handleCancelEditNotes = () => {
+    setEditingNotes(false)
+    setNotesText(currentNote?.notes || '')
+  }
+
+  const handleSaveNotes = async () => {
+    if (!selectedDay) return
+    
+    const result = await saveDayNote(selectedDay, notesText)
+    if (result.success) {
+      setEditingNotes(false)
+      // Note will be updated via the hook's state
+    }
+  }
+
+  // Fetch note when selected day changes
+  useEffect(() => {
+    if (selectedDay) {
+      fetchDayNote(selectedDay).then(note => {
+        if (note) {
+          setNotesText(note.notes || '')
+        } else {
+          setNotesText('')
+        }
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay])
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -447,13 +501,13 @@ function Calendar({ trades, onUpdate, onDelete }) {
                       handleDayClick(day)
                     }
                   }}
-                  tabIndex={stats.hasData ? 0 : -1}
+                  tabIndex={0}
                   role="gridcell"
-                  aria-label={`${format(day, 'MMMM d, yyyy')}${stats.hasData ? `, ${stats.trades} trades, ${formatCurrency(stats.profitLoss, true)}` : ', no trades'}`}
+                  aria-label={`${format(day, 'MMMM d, yyyy')}${stats.hasData ? `, ${stats.trades} trades, ${formatCurrency(stats.profitLoss, true)}` : ', click to view or add notes'}`}
                   className={`min-h-[100px] sm:min-h-[120px] p-2 md:p-4 border-r border-gray-800 ${
                     !isCurrentMonth ? 'bg-[#0a0a0a] opacity-50' : ''
                   } ${isToday ? 'ring-2 ring-[#a4fc3c] ring-inset' : ''} ${
-                    stats.hasData ? 'cursor-pointer hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:ring-offset-2 focus:ring-offset-[#1a1a1a]' : ''
+                    'cursor-pointer hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:ring-offset-2 focus:ring-offset-[#1a1a1a]'
                   }`}
                 >
                   {/* Date number */}
@@ -604,9 +658,7 @@ function Calendar({ trades, onUpdate, onDelete }) {
                 <button
                   key={dayIdx}
                   onClick={() => {
-                    if (dayTrades.length > 0) {
-                      setSelectedDay(day)
-                    }
+                    setSelectedDay(day)
                   }}
                   className={`aspect-square text-[10px] p-1 rounded transition-colors ${
                     !isCurrentMonthDay 
@@ -938,14 +990,23 @@ function Calendar({ trades, onUpdate, onDelete }) {
                 <h3 id="modal-title" className="text-lg sm:text-xl font-semibold text-white">
                   {formatDateLong(selectedDay)}
                 </h3>
-                <div className={`text-base sm:text-lg font-semibold mt-1 ${
-                  selectedDayTotal >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
-                }`}>
-                  Day Total: {formatCurrency(selectedDayTotal, true)}
-                </div>
-                {daySummaryStats && (
-                  <div className="text-xs text-gray-400 mt-2">
-                    {daySummaryStats.wins}W / {daySummaryStats.losses}L · {formatPercent(daySummaryStats.winRate, 1)} Win Rate · Avg: {formatCurrency(daySummaryStats.avgPL, true)}
+                {selectedDayTrades.length > 0 && (
+                  <>
+                    <div className={`text-base sm:text-lg font-semibold mt-1 ${
+                      selectedDayTotal >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+                    }`}>
+                      Day Total: {formatCurrency(selectedDayTotal, true)}
+                    </div>
+                    {daySummaryStats && (
+                      <div className="text-xs text-gray-400 mt-2">
+                        {daySummaryStats.wins}W / {daySummaryStats.losses}L · {formatPercent(daySummaryStats.winRate, 1)} Win Rate · Avg: {formatCurrency(daySummaryStats.avgPL, true)}
+                      </div>
+                    )}
+                  </>
+                )}
+                {selectedDayTrades.length === 0 && (
+                  <div className="text-sm text-gray-400 mt-1">
+                    No trades for this day
                   </div>
                 )}
               </div>
@@ -985,26 +1046,89 @@ function Calendar({ trades, onUpdate, onDelete }) {
                   <option value="sector">Sector</option>
                 </select>
               </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <button
-                  onClick={copyDayTrades}
-                  className="px-3 py-1 text-xs bg-[#0a0a0a] border border-gray-700 rounded text-white hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c]"
-                >
-                  Copy
-                </button>
-                <button
-                  onClick={exportDayTrades}
-                  className="px-3 py-1 text-xs bg-[#0a0a0a] border border-gray-700 rounded text-white hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c]"
-                >
-                  Export CSV
-                </button>
-              </div>
+              {selectedDayTrades.length > 0 && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    onClick={copyDayTrades}
+                    className="px-3 py-1 text-xs bg-[#0a0a0a] border border-gray-700 rounded text-white hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c]"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={exportDayTrades}
+                    className="px-3 py-1 text-xs bg-[#0a0a0a] border border-gray-700 rounded text-white hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c]"
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Modal Content - Trade List */}
             <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-200px)] sm:max-h-[calc(80vh-200px)]">
-              <div className="space-y-4">
-                {Object.entries(displayTrades).map(([groupName, groupTrades]) => (
+              {/* Day Notes Section */}
+              <div className="mb-6 pb-6 border-b border-gray-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-400">Trading Session Notes</h4>
+                  {!editingNotes && (
+                    <button
+                      onClick={handleStartEditNotes}
+                      className="px-3 py-1 text-xs bg-[#0a0a0a] border border-gray-700 rounded text-white hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c]"
+                    >
+                      {currentNote ? 'Edit Notes' : 'Add Notes'}
+                    </button>
+                  )}
+                </div>
+                
+                {notesLoading && !currentNote && (
+                  <div className="text-sm text-gray-500">Loading notes...</div>
+                )}
+                
+                {notesError && (
+                  <div className="text-sm text-red-400 mb-2">Error: {notesError}</div>
+                )}
+
+                {editingNotes ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={notesText}
+                      onChange={(e) => setNotesText(e.target.value)}
+                      placeholder="Add your notes about this trading session..."
+                      className="w-full min-h-[120px] p-3 bg-[#0a0a0a] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-transparent resize-y"
+                      disabled={notesSaving}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveNotes}
+                        disabled={notesSaving}
+                        className="px-4 py-2 text-sm bg-[#a4fc3c] text-black rounded-lg font-semibold hover:bg-[#8fdd2f] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {notesSaving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={handleCancelEditNotes}
+                        disabled={notesSaving}
+                        className="px-4 py-2 text-sm bg-[#0a0a0a] border border-gray-700 rounded-lg text-white hover:bg-[#2a2a2a] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-300 whitespace-pre-wrap">
+                    {currentNote?.notes ? (
+                      currentNote.notes
+                    ) : (
+                      <span className="text-gray-500 italic">No notes for this day. Click "Add Notes" to add some.</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Trades Section - Only show if there are trades */}
+              {selectedDayTrades.length > 0 && (
+                <div className="space-y-4">
+                  {Object.entries(displayTrades).map(([groupName, groupTrades]) => (
                   <div key={groupName}>
                     {groupBy !== 'none' && (
                       <div className="text-sm font-semibold text-gray-400 mb-2">{groupName}</div>
@@ -1106,7 +1230,15 @@ function Calendar({ trades, onUpdate, onDelete }) {
                     ))}
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
+
+              {/* Show message if no trades */}
+              {selectedDayTrades.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">No trades for this day.</p>
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
