@@ -52,12 +52,15 @@ function AllTrades({ trades, onUpdate, onDelete }) {
       return true
     })
     
-    // Sort by trade_date (most recent first), then by id (newer trades first) for same-day trades
+    // Sort by created_at to show trades in the exact order they were created/added (most recent first)
     return filtered.sort((a, b) => {
-      const dateCompare = new Date(b.trade_date) - new Date(a.trade_date)
-      if (dateCompare !== 0) return dateCompare
-      // If dates are equal, sort by id (descending - newer trades first)
-      return b.id.localeCompare(a.id)
+      if (!a.created_at || !b.created_at) {
+        // Fallback to trade_date and id if created_at is not available
+        const dateCompare = new Date(b.trade_date) - new Date(a.trade_date)
+        if (dateCompare !== 0) return dateCompare
+        return b.id.localeCompare(a.id)
+      }
+      return new Date(b.created_at) - new Date(a.created_at)
     })
   }, [trades, filters])
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, addYears, subYears, parseISO, isSameMonth, isSameDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, isSameYear } from 'date-fns'
-import { formatCurrency, formatDateLong, formatDateShort, formatPercent } from '../utils/formatters'
+import { formatCurrency, formatDateLong, formatDateShort, formatPercent, formatCents } from '../utils/formatters'
 import QualityBadge from './ui/QualityBadge'
 import EditTradeModal from './EditTradeModal'
 import DeleteConfirmModal from './DeleteConfirmModal'
@@ -353,8 +353,27 @@ function Calendar({ trades, onUpdate, onDelete }) {
     } else if (sortBy === 'ticker') {
       sorted.sort((a, b) => a.ticker.localeCompare(b.ticker))
     } else if (sortBy === 'time') {
-      // Assuming trades might have a time field, otherwise use entry order
-      sorted = selectedDayTrades // Keep original order
+      // Sort by creation order (most recent first) - same as default
+      sorted.sort((a, b) => {
+        if (!a.created_at || !b.created_at) {
+          // Fallback to trade_date and id if created_at is not available
+          const dateCompare = new Date(b.trade_date) - new Date(a.trade_date)
+          if (dateCompare !== 0) return dateCompare
+          return b.id.localeCompare(a.id)
+        }
+        return new Date(b.created_at) - new Date(a.created_at)
+      })
+    } else {
+      // Default: Sort by creation order (most recent first) - use created_at timestamp
+      sorted.sort((a, b) => {
+        if (!a.created_at || !b.created_at) {
+          // Fallback to trade_date and id if created_at is not available
+          const dateCompare = new Date(b.trade_date) - new Date(a.trade_date)
+          if (dateCompare !== 0) return dateCompare
+          return b.id.localeCompare(a.id)
+        }
+        return new Date(b.created_at) - new Date(a.created_at)
+      })
     }
 
     // Group trades
@@ -1133,7 +1152,9 @@ function Calendar({ trades, onUpdate, onDelete }) {
                     {groupBy !== 'none' && (
                       <div className="text-sm font-semibold text-gray-400 mb-2">{groupName}</div>
                     )}
-                    {groupTrades.map((trade) => (
+                    {groupTrades.map((trade) => {
+                      const centsPL = trade.exit_price - trade.entry_price
+                      return (
                       <div 
                         key={trade.id}
                         className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 sm:p-4 hover:bg-[#2a2a2a] transition-colors"
@@ -1166,6 +1187,13 @@ function Calendar({ trades, onUpdate, onDelete }) {
                               trade.profit_loss >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
                             }`}>
                               {formatCurrency(trade.profit_loss, true)}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Cents P/L: <span className={`font-semibold ${
+                                centsPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+                              }`}>
+                                {formatCents(centsPL, true)}
+                              </span>
                             </div>
                           </div>
 
@@ -1227,7 +1255,8 @@ function Calendar({ trades, onUpdate, onDelete }) {
                           </div>
                         )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ))}
                 </div>

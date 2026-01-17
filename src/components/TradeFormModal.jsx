@@ -6,6 +6,7 @@ import LoadingSpinner from './ui/LoadingSpinner'
 const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [isMultipleMode, setIsMultipleMode] = useState(false)
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -39,6 +40,11 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
     loser_winner_reason: ''
   })
 
+  // Multiple trades state
+  const [multipleTrades, setMultipleTrades] = useState([
+    { entry_price: '', exit_price: '', shares: '' }
+  ])
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     setFormData(prev => ({
@@ -47,17 +53,57 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
     }))
   }
 
+  // Reset form when modal closes or mode changes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsMultipleMode(false)
+      setFormData({
+        trade_date: new Date().toISOString().split('T')[0],
+        ticker: '',
+        entry_price: '',
+        exit_price: '',
+        shares: '',
+        news: false,
+        float: '',
+        sector: '',
+        setup_quality: '',
+        pullback_type: '',
+        setup_type: '',
+        strategy: '',
+        notes: '',
+        loser_winner_reason: ''
+      })
+      setMultipleTrades([{ entry_price: '', exit_price: '', shares: '' }])
+    }
+  }, [isOpen])
+
+  // Handle multiple trade row changes
+  const handleMultipleTradeChange = (index, field, value) => {
+    setMultipleTrades(prev => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+  }
+
+  // Add a new trade row
+  const addTradeRow = () => {
+    setMultipleTrades(prev => [...prev, { entry_price: '', exit_price: '', shares: '' }])
+  }
+
+  // Remove a trade row
+  const removeTradeRow = (index) => {
+    if (multipleTrades.length > 1) {
+      setMultipleTrades(prev => prev.filter((_, i) => i !== index))
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      // Validate required fields
-      if (!formData.ticker || !formData.entry_price || !formData.exit_price || !formData.shares) {
-        throw new Error('Please fill in all required fields (Ticker, Entry Price, Exit Price, Shares)')
-      }
-
       // Get the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -85,49 +131,112 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
         finalAccountId = accountData.id;
       }
 
-      // Prepare data for insertion
-      // Try without user_id first - RLS may handle it automatically
-      // If that fails, we'll include it
-      const tradeData = {
-        account_id: finalAccountId,
-        trade_date: formData.trade_date,
-        ticker: formData.ticker.toUpperCase(),
-        entry_price: parseFloat(formData.entry_price),
-        exit_price: parseFloat(formData.exit_price),
-        shares: parseInt(formData.shares),
-        news: formData.news,
-        float: formData.float || null,
-        sector: formData.sector || null,
-        setup_quality: formData.setup_quality || null,
-        pullback_type: formData.pullback_type || null,
-        setup_type: formData.setup_type || null,
-        strategy: formData.strategy || null,
-        notes: formData.notes || null,
-        loser_winner_reason: formData.loser_winner_reason || null
-      }
+      if (isMultipleMode) {
+        // Multiple trades mode
+        // Validate shared fields
+        if (!formData.ticker || !formData.trade_date) {
+          throw new Error('Please fill in all required shared fields (Ticker, Date)')
+        }
 
-      // Insert into Supabase
-      // Try insert without user_id first (RLS may handle it)
-      let { data, error: insertError } = await supabase
-        .from('trades')
-        .insert([tradeData])
-        .select()
+        // Validate and filter valid trade rows
+        const validTrades = multipleTrades.filter(
+          trade => trade.entry_price && trade.exit_price && trade.shares
+        )
 
-      // If that fails with user_id error, try with user_id explicitly
-      if (insertError && (insertError.message?.includes('user_id') || insertError.code === 'PGRST204')) {
-        const tradeDataWithUserId = {
-          ...tradeData,
-          user_id: session.user.id
-        };
-        const retryResult = await supabase
+        if (validTrades.length === 0) {
+          throw new Error('Please add at least one trade with Entry Price, Exit Price, and Shares')
+        }
+
+        // Prepare batch insert data
+        const tradesData = validTrades.map(trade => ({
+          account_id: finalAccountId,
+          trade_date: formData.trade_date,
+          ticker: formData.ticker.toUpperCase(),
+          entry_price: parseFloat(trade.entry_price),
+          exit_price: parseFloat(trade.exit_price),
+          shares: parseInt(trade.shares),
+          news: formData.news,
+          float: formData.float || null,
+          sector: formData.sector || null,
+          setup_quality: null,
+          pullback_type: null,
+          setup_type: null,
+          strategy: null,
+          notes: null,
+          loser_winner_reason: null
+        }))
+
+        // Insert into Supabase
+        let { data, error: insertError } = await supabase
           .from('trades')
-          .insert([tradeDataWithUserId])
-          .select();
-        
-        if (retryResult.error) throw retryResult.error;
-        data = retryResult.data;
-      } else if (insertError) {
-        throw insertError;
+          .insert(tradesData)
+          .select()
+
+        // If that fails with user_id error, try with user_id explicitly
+        if (insertError && (insertError.message?.includes('user_id') || insertError.code === 'PGRST204')) {
+          const tradesDataWithUserId = tradesData.map(trade => ({
+            ...trade,
+            user_id: session.user.id
+          }))
+          const retryResult = await supabase
+            .from('trades')
+            .insert(tradesDataWithUserId)
+            .select();
+          
+          if (retryResult.error) throw retryResult.error;
+          data = retryResult.data;
+        } else if (insertError) {
+          throw insertError;
+        }
+
+      } else {
+        // Single trade mode
+        // Validate required fields
+        if (!formData.ticker || !formData.entry_price || !formData.exit_price || !formData.shares) {
+          throw new Error('Please fill in all required fields (Ticker, Entry Price, Exit Price, Shares)')
+        }
+
+        // Prepare data for insertion
+        const tradeData = {
+          account_id: finalAccountId,
+          trade_date: formData.trade_date,
+          ticker: formData.ticker.toUpperCase(),
+          entry_price: parseFloat(formData.entry_price),
+          exit_price: parseFloat(formData.exit_price),
+          shares: parseInt(formData.shares),
+          news: formData.news,
+          float: formData.float || null,
+          sector: formData.sector || null,
+          setup_quality: formData.setup_quality || null,
+          pullback_type: formData.pullback_type || null,
+          setup_type: formData.setup_type || null,
+          strategy: formData.strategy || null,
+          notes: formData.notes || null,
+          loser_winner_reason: formData.loser_winner_reason || null
+        }
+
+        // Insert into Supabase
+        let { data, error: insertError } = await supabase
+          .from('trades')
+          .insert([tradeData])
+          .select()
+
+        // If that fails with user_id error, try with user_id explicitly
+        if (insertError && (insertError.message?.includes('user_id') || insertError.code === 'PGRST204')) {
+          const tradeDataWithUserId = {
+            ...tradeData,
+            user_id: session.user.id
+          };
+          const retryResult = await supabase
+            .from('trades')
+            .insert([tradeDataWithUserId])
+            .select();
+          
+          if (retryResult.error) throw retryResult.error;
+          data = retryResult.data;
+        } else if (insertError) {
+          throw insertError;
+        }
       }
 
       // Reset form
@@ -147,6 +256,7 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
         notes: '',
         loser_winner_reason: ''
       })
+      setMultipleTrades([{ entry_price: '', exit_price: '', shares: '' }])
 
       // Notify parent component
       onTradeAdded()
@@ -166,16 +276,43 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-[#1a1a1a] rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto border border-gray-800">
         {/* Header */}
-        <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Add New Trade</h2>
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="text-gray-400 hover:text-white text-2xl sm:text-3xl leading-none transition-colors disabled:opacity-50 flex-shrink-0"
-            aria-label="Close modal"
-          >
-            ×
-          </button>
+        <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Add New Trade</h2>
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="text-gray-400 hover:text-white text-2xl sm:text-3xl leading-none transition-colors disabled:opacity-50 flex-shrink-0"
+              aria-label="Close modal"
+            >
+              ×
+            </button>
+          </div>
+          
+          {/* Toggle Switch */}
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${!isMultipleMode ? 'text-white' : 'text-gray-400'}`}>
+              Single Trade
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsMultipleMode(!isMultipleMode)}
+              disabled={loading}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:ring-offset-2 focus:ring-offset-[#1a1a1a] ${
+                isMultipleMode ? 'bg-[#a4fc3c]' : 'bg-gray-600'
+              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              aria-label="Toggle multiple trades mode"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isMultipleMode ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${isMultipleMode ? 'text-white' : 'text-gray-400'}`}>
+              Multiple Trades
+            </span>
+          </div>
         </div>
 
         {/* Form */}
@@ -189,8 +326,13 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
           {/* Basic Trade Information */}
           <div className="mb-6 md:mb-8">
             <h3 className="text-lg md:text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
-              Basic Information
+              {isMultipleMode ? 'Shared Information' : 'Basic Information'}
             </h3>
+            {isMultipleMode && (
+              <p className="text-sm text-gray-400 mb-4">
+                These fields will be applied to all trades below.
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -221,55 +363,59 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Entry Price <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="entry_price"
-                  value={formData.entry_price}
-                  onChange={handleChange}
-                  required
-                  step="0.01"
-                  min="0.01"
-                  placeholder="14.50"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                />
-              </div>
+              {!isMultipleMode && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Entry Price <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="entry_price"
+                      value={formData.entry_price}
+                      onChange={handleChange}
+                      required
+                      step="0.01"
+                      min="0.01"
+                      placeholder="14.50"
+                      className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Exit Price <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="exit_price"
-                  value={formData.exit_price}
-                  onChange={handleChange}
-                  required
-                  step="0.01"
-                  min="0.01"
-                  placeholder="15.20"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Exit Price <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="exit_price"
+                      value={formData.exit_price}
+                      onChange={handleChange}
+                      required
+                      step="0.01"
+                      min="0.01"
+                      placeholder="15.20"
+                      className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Shares <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="shares"
-                  value={formData.shares}
-                  onChange={handleChange}
-                  required
-                  min="1"
-                  placeholder="500"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Shares <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="shares"
+                      value={formData.shares}
+                      onChange={handleChange}
+                      required
+                      min="1"
+                      placeholder="500"
+                      className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex items-center pt-8">
                 <label className="flex items-center cursor-pointer">
@@ -322,121 +468,206 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
             </div>
           </div>
 
-          {/* Trade Setup */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
-              Trade Setup
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Setup Quality
-                </label>
-                <select
-                  name="setup_quality"
-                  value={formData.setup_quality}
-                  onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+          {/* Multiple Trades Section */}
+          {isMultipleMode && (
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-white border-b border-gray-800 pb-2 flex-1">
+                  Individual Trades
+                </h3>
+                <button
+                  type="button"
+                  onClick={addTradeRow}
+                  className="px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#3a3a3a] transition-colors text-sm font-medium flex items-center gap-2"
                 >
-                  <option value="">Select Grade</option>
-                  <option value="A">A - Excellent</option>
-                  <option value="B">B - Good</option>
-                  <option value="C">C - Poor</option>
-                </select>
+                  <span>+</span>
+                  <span>Add Trade</span>
+                </button>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Strategy
-                </label>
-                <select
-                  name="strategy"
-                  value={formData.strategy}
-                  onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                >
-                  <option value="">Select Strategy</option>
-                  <option value="Momentum">Momentum</option>
-                  <option value="Dip">Dip Trade</option>
-                  <option value="Scalp">Scalp</option>
-                  <option value="Reversal">Reversal</option>
-                  <option value="Breakout">Breakout</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Pullback Type
-                </label>
-                <select
-                  name="pullback_type"
-                  value={formData.pullback_type}
-                  onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                >
-                  <option value="">Select Pullback</option>
-                  <option value="1st Pull Back">1st Pull Back</option>
-                  <option value="2nd Pull Back">2nd Pull Back</option>
-                  <option value="3rd Pull Back +">3rd Pull Back +</option>
-                  <option value="High Risk">High Risk</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Setup Type
-                </label>
-                <select
-                  name="setup_type"
-                  value={formData.setup_type}
-                  onChange={handleChange}
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                >
-                  <option value="">Select Setup</option>
-                  <option value="1 Minute Setup">1 Minute Setup</option>
-                  <option value="5 Minute Setup">5 Minute Setup</option>
-                  <option value="10 Second Setup">10 Second Setup</option>
-                  <option value="Halt">Halt</option>
-                </select>
+              
+              <div className="space-y-4">
+                {multipleTrades.map((trade, index) => (
+                  <div key={index} className="bg-[#0a0a0a] border border-gray-700 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-sm font-medium text-gray-300">Trade {index + 1}</h4>
+                      {multipleTrades.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTradeRow(index)}
+                          className="text-red-400 hover:text-red-300 text-sm font-medium"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          Entry Price <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={trade.entry_price}
+                          onChange={(e) => handleMultipleTradeChange(index, 'entry_price', e.target.value)}
+                          step="0.01"
+                          min="0.01"
+                          placeholder="14.50"
+                          className="w-full bg-[#1a1a1a] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          Exit Price <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={trade.exit_price}
+                          onChange={(e) => handleMultipleTradeChange(index, 'exit_price', e.target.value)}
+                          step="0.01"
+                          min="0.01"
+                          placeholder="15.20"
+                          className="w-full bg-[#1a1a1a] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          Shares <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={trade.shares}
+                          onChange={(e) => handleMultipleTradeChange(index, 'shares', e.target.value)}
+                          min="1"
+                          placeholder="500"
+                          className="w-full bg-[#1a1a1a] border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Notes */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
-              Trade Notes
-            </h3>
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  General Notes
-                </label>
-                <textarea
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows="3"
-                  placeholder="Entry reasons, market conditions, emotions..."
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                />
-              </div>
+          {/* Trade Setup - Only show in single mode */}
+          {!isMultipleMode && (
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
+                Trade Setup
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Setup Quality
+                  </label>
+                  <select
+                    name="setup_quality"
+                    value={formData.setup_quality}
+                    onChange={handleChange}
+                    className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                  >
+                    <option value="">Select Grade</option>
+                    <option value="A">A - Excellent</option>
+                    <option value="B">B - Good</option>
+                    <option value="C">C - Poor</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Win/Loss Analysis
-                </label>
-                <textarea
-                  name="loser_winner_reason"
-                  value={formData.loser_winner_reason}
-                  onChange={handleChange}
-                  rows="3"
-                  placeholder="Why did this trade win or lose? What can you learn?"
-                  className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Strategy
+                  </label>
+                  <select
+                    name="strategy"
+                    value={formData.strategy}
+                    onChange={handleChange}
+                    className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                  >
+                    <option value="">Select Strategy</option>
+                    <option value="Momentum">Momentum</option>
+                    <option value="Dip">Dip Trade</option>
+                    <option value="Scalp">Scalp</option>
+                    <option value="Reversal">Reversal</option>
+                    <option value="Breakout">Breakout</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Pullback Type
+                  </label>
+                  <select
+                    name="pullback_type"
+                    value={formData.pullback_type}
+                    onChange={handleChange}
+                    className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                  >
+                    <option value="">Select Pullback</option>
+                    <option value="1st Pull Back">1st Pull Back</option>
+                    <option value="2nd Pull Back">2nd Pull Back</option>
+                    <option value="3rd Pull Back +">3rd Pull Back +</option>
+                    <option value="High Risk">High Risk</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Setup Type
+                  </label>
+                  <select
+                    name="setup_type"
+                    value={formData.setup_type}
+                    onChange={handleChange}
+                    className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                  >
+                    <option value="">Select Setup</option>
+                    <option value="1 Minute Setup">1 Minute Setup</option>
+                    <option value="5 Minute Setup">5 Minute Setup</option>
+                    <option value="10 Second Setup">10 Second Setup</option>
+                    <option value="Halt">Halt</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Notes - Only show in single mode */}
+          {!isMultipleMode && (
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-white mb-4 border-b border-gray-800 pb-2">
+                Trade Notes
+              </h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    General Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    rows="3"
+                    placeholder="Entry reasons, market conditions, emotions..."
+                    className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Win/Loss Analysis
+                  </label>
+                  <textarea
+                    name="loser_winner_reason"
+                    value={formData.loser_winner_reason}
+                    onChange={handleChange}
+                    rows="3"
+                    placeholder="Why did this trade win or lose? What can you learn?"
+                    className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c]"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Form Actions */}
           <div className="flex justify-end gap-4 pt-4 border-t border-gray-800">
@@ -456,10 +687,10 @@ const TradeFormModal = ({ isOpen, onClose, onTradeAdded, accountId }) => {
               {loading ? (
                 <>
                   <LoadingSpinner size="sm" />
-                  <span>Adding Trade...</span>
+                  <span>{isMultipleMode ? 'Adding Trades...' : 'Adding Trade...'}</span>
                 </>
               ) : (
-                'Add Trade'
+                isMultipleMode ? 'Add Trades' : 'Add Trade'
               )}
             </button>
           </div>
