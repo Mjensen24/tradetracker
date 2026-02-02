@@ -4,54 +4,62 @@ import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters
 function PositionCalculator({ currentBalance }) {
   const [entryPrice, setEntryPrice] = useState('');
   const [stopPercent, setStopPercent] = useState('2'); // Default 2% stop loss
-  const [useLeverage, setUseLeverage] = useState(false);
-  const [leverage, setLeverage] = useState(4); // Default to 4x when enabled
 
   const calculatePosition = () => {
     if (!entryPrice || entryPrice <= 0) return null;
 
-    // Ensure currentBalance is a valid number
-    const balance = Number(currentBalance) || 0;
-    const price = parseFloat(entryPrice);
+    // Convert to numbers and round to avoid floating point issues
+    const balance = Math.round((Number(currentBalance) || 0) * 100) / 100;
+    const price = Math.round(parseFloat(entryPrice) * 100) / 100;
     const stopPct = parseFloat(stopPercent) / 100;
 
-    // Calculate effective buying power (with leverage if enabled)
-    const effectiveBuyingPower = useLeverage ? balance * leverage : balance;
-
-    // Calculate maximum shares that fit within balance (position value <= balance)
-    const maxSharesExact = effectiveBuyingPower / price;
-    const maxSharesFloor = Math.floor(maxSharesExact);
-    const exactPositionValue = maxSharesFloor * price;
+    // COMPLETELY DIFFERENT APPROACH: Calculate both options explicitly
     
-    // Note: 250-share increment will be calculated from maxSharesFloor when needed
+    // Option 1: Maximum shares that fit (exact 100% if possible)
+    const maxSharesRaw = balance / price;
+    const maxSharesExact = Math.floor(maxSharesRaw);
+    const exactCost = maxSharesExact * price;
+    const exactCostRounded = Math.round(exactCost * 100) / 100;
     
-    // Check if exact max shares uses exactly 100% of balance (within 1 cent tolerance)
-    const difference = effectiveBuyingPower - exactPositionValue;
-    const uses100Percent = difference >= 0 && difference < 0.01;
+    // Check if exact cost equals balance (exact 100% match)
+    const isExact100Percent = Math.abs(exactCostRounded - balance) < 0.005;
     
-    // Determine shares: use exact 100% if possible, otherwise use max 250-share increment
-    let shares;
-    if (uses100Percent) {
-      // Can use exactly 100% of balance - use the exact amount (any number of shares)
-      shares = maxSharesFloor;
-    } else {
-      // CANNOT use exactly 100% - MUST use 250-share increments
-      // Round down maxSharesFloor to the nearest 250-share increment
-      shares = Math.floor(maxSharesFloor / 250) * 250;
+    // Option 2: Maximum 250-share increment that fits
+    // Calculate by finding how many complete 250-share blocks fit
+    let shares250Increment = 0;
+    let testShares = 0;
+    while (true) {
+      const nextTest = testShares + 250;
+      const nextCost = nextTest * price;
+      const nextCostRounded = Math.round(nextCost * 100) / 100;
       
-      // Verify this fits within balance (should always be true, but safety check)
-      if (shares * price > effectiveBuyingPower) {
-        // Reduce by 250 shares until it fits
-        shares = Math.max(0, shares - 250);
+      if (nextCostRounded <= balance) {
+        shares250Increment = nextTest;
+        testShares = nextTest;
+      } else {
+        break;
       }
     }
     
-    // Final verification: ensure position value doesn't exceed balance
-    const finalPositionValue = shares * price;
-    if (finalPositionValue > effectiveBuyingPower + 0.01) {
-      // Reduce by 250 shares until it fits
-      while (shares > 0 && shares * price > effectiveBuyingPower) {
+    // Determine final shares: use exact 100% if it matches, otherwise use 250 increment
+    let shares;
+    if (isExact100Percent && exactCostRounded <= balance) {
+      // Perfect 100% match - use exact shares
+      shares = maxSharesExact;
+    } else {
+      // Not exact 100% - use 250-share increment
+      shares = shares250Increment;
+    }
+    
+    // Final safety check: ensure we never exceed balance
+    const finalCost = shares * price;
+    const finalCostRounded = Math.round(finalCost * 100) / 100;
+    if (finalCostRounded > balance) {
+      // Emergency fallback: reduce by 250 until it fits
+      while (shares >= 250) {
         shares -= 250;
+        const testCost = Math.round((shares * price) * 100) / 100;
+        if (testCost <= balance) break;
       }
     }
 
@@ -74,8 +82,7 @@ function PositionCalculator({ currentBalance }) {
       totalRisk,
       totalReward,
       riskPerShare,
-      rewardPerShare,
-      effectiveBuyingPower
+      rewardPerShare
     };
   };
 
@@ -89,32 +96,10 @@ function PositionCalculator({ currentBalance }) {
         {/* Account Balance Card */}
         <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-4 md:p-6 mb-4 md:mb-6">
           <h2 className="text-lg md:text-xl font-semibold mb-2 text-white">Account Balance</h2>
-          <div className="space-y-2">
-            <div>
-              <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
-                {formatCurrency(Number(currentBalance) || 0)}
-              </p>
-              <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Actual Balance</p>
-            </div>
-            {useLeverage && (
-              <div className="mt-4 pt-4 border-t border-gray-800">
-                <p className="text-2xl md:text-3xl font-bold text-yellow-400">
-                  {formatCurrency((Number(currentBalance) || 0) * leverage)}
-                </p>
-                <p className="text-xs md:text-sm font-medium text-yellow-400/70 mt-1">
-                  Leveraged Buying Power ({leverage}x)
-                </p>
-                <div className="mt-2 px-3 py-2 bg-yellow-400/10 border border-yellow-400/30 rounded-md">
-                  <p className="text-xs text-yellow-400/90">
-                    ⚠️ Leverage amplifies both gains and losses. Higher risk exposure.
-                  </p>
-                </div>
-              </div>
-            )}
-            {!useLeverage && (
-              <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Available Buying Power (100%)</p>
-            )}
-          </div>
+          <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
+            {formatCurrency(currentBalance)}
+          </p>
+          <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Available Buying Power (100%)</p>
         </div>
 
         {/* Entry Details Card */}
@@ -149,57 +134,6 @@ function PositionCalculator({ currentBalance }) {
                 placeholder="2.0"
               />
             </div>
-          </div>
-
-          {/* Leverage Controls */}
-          <div className="mt-6 pt-6 border-t border-gray-800">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <label className="block text-sm font-medium text-white mb-1">
-                  Enable Leverage
-                </label>
-                <p className="text-xs text-gray-400">
-                  Multiply your buying power to increase position size
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setUseLeverage(!useLeverage)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:ring-offset-2 focus:ring-offset-[#1a1a1a] ${
-                  useLeverage ? 'bg-[#a4fc3c]' : 'bg-gray-700'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    useLeverage ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {useLeverage && (
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Leverage Multiplier
-                </label>
-                <div className="flex gap-2">
-                  {[4, 5, 6].map((mult) => (
-                    <button
-                      key={mult}
-                      type="button"
-                      onClick={() => setLeverage(mult)}
-                      className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-                        leverage === mult
-                          ? 'bg-[#a4fc3c] text-black'
-                          : 'bg-[#0a0a0a] border border-gray-700 text-white hover:border-[#a4fc3c]'
-                      }`}
-                    >
-                      {mult}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -243,7 +177,7 @@ function PositionCalculator({ currentBalance }) {
                     <div className="flex justify-between items-center pt-2 border-t border-gray-800">
                       <span className="text-sm text-gray-400">Risk % of Account:</span>
                       <span className="text-sm font-semibold text-white">
-                        {formatPercent((position.totalRisk / (Number(currentBalance) || 1)) * 100, 2)}
+                        {formatPercent((position.totalRisk / currentBalance) * 100, 2)}
                       </span>
                     </div>
                   </div>
