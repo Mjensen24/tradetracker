@@ -4,6 +4,8 @@ import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters
 function PositionCalculator({ currentBalance }) {
   const [entryPrice, setEntryPrice] = useState('');
   const [stopPercent, setStopPercent] = useState('2'); // Default 2% stop loss
+  const [useLeverage, setUseLeverage] = useState(false);
+  const [leverage, setLeverage] = useState(4); // Default to 4x when enabled
 
   const calculatePosition = () => {
     if (!entryPrice || entryPrice <= 0) return null;
@@ -11,8 +13,11 @@ function PositionCalculator({ currentBalance }) {
     const price = parseFloat(entryPrice);
     const stopPct = parseFloat(stopPercent) / 100;
 
-    // Calculate shares with 100% buying power and round down to nearest 250
-    const maxShares = Math.floor(currentBalance / price);
+    // Calculate effective buying power (with leverage if enabled)
+    const effectiveBuyingPower = useLeverage ? currentBalance * leverage : currentBalance;
+
+    // Calculate shares with effective buying power and round down to nearest 250
+    const maxShares = Math.floor(effectiveBuyingPower / price);
     const shares = Math.floor(maxShares / 250) * 250;
 
     // Calculate stop loss price (entry - X%)
@@ -34,7 +39,8 @@ function PositionCalculator({ currentBalance }) {
       totalRisk,
       totalReward,
       riskPerShare,
-      rewardPerShare
+      rewardPerShare,
+      effectiveBuyingPower
     };
   };
 
@@ -48,10 +54,32 @@ function PositionCalculator({ currentBalance }) {
         {/* Account Balance Card */}
         <div className="bg-[#1a1a1a] rounded-xl border border-gray-800 p-4 md:p-6 mb-4 md:mb-6">
           <h2 className="text-lg md:text-xl font-semibold mb-2 text-white">Account Balance</h2>
-          <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
-            {formatCurrency(currentBalance)}
-          </p>
-          <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Available Buying Power (100%)</p>
+          <div className="space-y-2">
+            <div>
+              <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
+                {formatCurrency(currentBalance)}
+              </p>
+              <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Actual Balance</p>
+            </div>
+            {useLeverage && (
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <p className="text-2xl md:text-3xl font-bold text-yellow-400">
+                  {formatCurrency(currentBalance * leverage)}
+                </p>
+                <p className="text-xs md:text-sm font-medium text-yellow-400/70 mt-1">
+                  Leveraged Buying Power ({leverage}x)
+                </p>
+                <div className="mt-2 px-3 py-2 bg-yellow-400/10 border border-yellow-400/30 rounded-md">
+                  <p className="text-xs text-yellow-400/90">
+                    ⚠️ Leverage amplifies both gains and losses. Higher risk exposure.
+                  </p>
+                </div>
+              </div>
+            )}
+            {!useLeverage && (
+              <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Available Buying Power (100%)</p>
+            )}
+          </div>
         </div>
 
         {/* Entry Details Card */}
@@ -86,6 +114,57 @@ function PositionCalculator({ currentBalance }) {
                 placeholder="2.0"
               />
             </div>
+          </div>
+
+          {/* Leverage Controls */}
+          <div className="mt-6 pt-6 border-t border-gray-800">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-1">
+                  Enable Leverage
+                </label>
+                <p className="text-xs text-gray-400">
+                  Multiply your buying power to increase position size
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUseLeverage(!useLeverage)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:ring-offset-2 focus:ring-offset-[#1a1a1a] ${
+                  useLeverage ? 'bg-[#a4fc3c]' : 'bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    useLeverage ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {useLeverage && (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Leverage Multiplier
+                </label>
+                <div className="flex gap-2">
+                  {[4, 5, 6].map((mult) => (
+                    <button
+                      key={mult}
+                      type="button"
+                      onClick={() => setLeverage(mult)}
+                      className={`flex-1 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                        leverage === mult
+                          ? 'bg-[#a4fc3c] text-black'
+                          : 'bg-[#0a0a0a] border border-gray-700 text-white hover:border-[#a4fc3c]'
+                      }`}
+                    >
+                      {mult}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
