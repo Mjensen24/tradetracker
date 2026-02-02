@@ -29,7 +29,7 @@ export const calculateTradeMetrics = (bought, sold, shares) => {
 };
 
 // Calculate dashboard statistics
-export const calculateStats = (trades, startingBalance) => {
+export const calculateStats = (trades, startingBalance, totalWithdrawals = 0) => {
   const wins = trades.filter(t => t.win_loss === 'W');
   const losses = trades.filter(t => t.win_loss === 'L');
   
@@ -140,8 +140,9 @@ if (trades.length > 0) {
 }
 const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
   
-  const currentBalance = startingBalance + netPL;
-  const roi = ((netPL / startingBalance) * 100);
+  const currentBalance = startingBalance + netPL - totalWithdrawals;
+  // ROI should account for withdrawals - it's the return on the starting investment
+  const roi = ((currentBalance - startingBalance) / startingBalance) * 100;
   
   // News vs No-News Analysis
   const newsTrades = trades.filter(t => t.news === true);
@@ -349,7 +350,13 @@ export const compareMonths = (trades, currentMonth, previousMonth) => {
   const currentPL = currentMonthTrades.reduce((sum, t) => sum + t.profit_loss, 0);
   const previousPL = previousMonthTrades.reduce((sum, t) => sum + t.profit_loss, 0);
   const difference = currentPL - previousPL;
-  const percentChange = previousPL !== 0 ? (difference / Math.abs(previousPL)) * 100 : 0;
+  
+  // Only calculate percent change if both months have trades
+  // This avoids misleading -100% when current month has no trades
+  let percentChange = null;
+  if (previousPL !== 0 && currentMonthTrades.length > 0 && previousMonthTrades.length > 0) {
+    percentChange = (difference / Math.abs(previousPL)) * 100;
+  }
 
   return {
     current: {
@@ -363,6 +370,6 @@ export const compareMonths = (trades, currentMonth, previousMonth) => {
       days: new Set(previousMonthTrades.map(t => t.trade_date)).size
     },
     difference,
-    percentChange
+    percentChange // null if one month has no trades
   };
 };

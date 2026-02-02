@@ -52,11 +52,14 @@ function App() {
     createAccount,
     switchAccount,
     renameAccount,
-    deleteAccount
+    deleteAccount,
+    resetAccountBalance,
+    fetchWithdrawals
   } = useAccount()
 
   // Use account's starting balance or fallback to constant
   const startingBalance = account?.starting_balance || STARTING_BALANCE
+  const totalWithdrawals = account?.total_withdrawals || 0
 
   // Trades already have calculated fields from the hook (profit_loss, cents_diff, win_loss)
   const trades = supabaseTrades
@@ -65,8 +68,8 @@ function App() {
   // Recalculate when trades or account changes
   const stats = useMemo(() => {
     if (trades.length === 0) return null
-    return calculateStats(trades, startingBalance)
-  }, [trades, startingBalance, account?.id])
+    return calculateStats(trades, startingBalance, totalWithdrawals)
+  }, [trades, startingBalance, totalWithdrawals, account?.id, account?.total_withdrawals])
 
   // Handle trade added
   const handleTradeAdded = () => {
@@ -143,7 +146,7 @@ function App() {
     // Render views with data
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard trades={trades} stats={stats} />
+        return <Dashboard trades={trades} stats={stats} accountId={account?.id} fetchWithdrawals={fetchWithdrawals} />
       case 'charts':
         return <Charts trades={trades} /> 
       case 'calendar':
@@ -162,6 +165,7 @@ function App() {
             onSwitchAccount={switchAccount}
             onRenameAccount={renameAccount}
             onDeleteAccount={deleteAccount}
+            onResetAccountBalance={resetAccountBalance}
             onRefetchTrades={refetchTrades}
             loading={accountLoading} 
           />

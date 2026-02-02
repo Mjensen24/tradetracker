@@ -139,9 +139,11 @@ export const useAccount = () => {
     checkAuthAndFetch();
   }, []);
 
-  const fetchAccount = async () => {
+  const fetchAccount = async (skipLoading = false) => {
     try {
-      setLoading(true);
+      if (!skipLoading) {
+        setLoading(true);
+      }
       
       const { data, error: accountError } = await supabase
         .from('accounts')
@@ -157,7 +159,9 @@ export const useAccount = () => {
       console.error('Error fetching account:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!skipLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -332,6 +336,108 @@ export const useAccount = () => {
     }
   };
 
+  const fetchWithdrawals = async (accountId) => {
+    try {
+      const { data, error } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('withdrawal_date', { ascending: true });
+
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (err) {
+      console.error('Error fetching withdrawals:', err);
+      return { success: false, error: err.message, data: [] };
+    }
+  };
+
+  const resetAccountBalance = async (accountId, withdrawalAmount, withdrawalDate = null) => {
+    try {
+      // Get current session for user_id
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session?.user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get account to check existing withdrawals
+      const { data: accountData, error: accountError } = await supabase
+        .from('accounts')
+        .select('starting_balance, total_withdrawals')
+        .eq('id', accountId)
+        .single();
+      
+      if (accountError) throw accountError;
+      
+      // Get trades to calculate current balance
+      const { data: tradesData, error: tradesError } = await supabase
+        .from('trades')
+        .select('exit_price, entry_price, shares')
+        .eq('account_id', accountId);
+      
+      if (tradesError) throw tradesError;
+      
+      // Calculate current balance
+      // profit_loss is calculated as (exit_price - entry_price) * shares
+      const netPL = tradesData.reduce((sum, t) => {
+        const profitLoss = (t.exit_price - t.entry_price) * (t.shares || 0);
+        return sum + (profitLoss || 0);
+      }, 0);
+      const existingWithdrawals = accountData.total_withdrawals || 0;
+      const currentBalance = accountData.starting_balance + netPL - existingWithdrawals;
+      
+      // Validate
+      if (withdrawalAmount <= 0) {
+        throw new Error('Withdrawal amount must be positive');
+      }
+      if (withdrawalAmount > currentBalance) {
+        throw new Error(`Withdrawal amount cannot exceed current balance of ${currentBalance.toFixed(2)}`);
+      }
+      
+      // Use provided date or default to today
+      const dateToUse = withdrawalDate || new Date().toISOString().split('T')[0];
+      
+      // Insert withdrawal record
+      const { data: withdrawalData, error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .insert({
+          account_id: accountId,
+          user_id: session.user.id,
+          amount: withdrawalAmount,
+          withdrawal_date: dateToUse
+        })
+        .select()
+        .single();
+      
+      if (withdrawalError) throw withdrawalError;
+      
+      // Update total_withdrawals on account for backward compatibility
+      const newTotalWithdrawals = existingWithdrawals + withdrawalAmount;
+      const { data, error: updateError } = await supabase
+        .from('accounts')
+        .update({ total_withdrawals: newTotalWithdrawals })
+        .eq('id', accountId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      
+      // Refresh account data - always refresh to get latest total_withdrawals
+      await fetchAccount(true); // Skip loading state to avoid UI flicker
+      await fetchAllAccounts();
+      
+      // Dispatch event to notify other components that account data has changed
+      // This will trigger stats recalculation in App.jsx
+      window.dispatchEvent(new CustomEvent('accountChanged'));
+      
+      return { success: true, data };
+    } catch (err) {
+      console.error('Error resetting account balance:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   return { 
     account, 
     allAccounts,
@@ -343,6 +449,8 @@ export const useAccount = () => {
     createAccount,
     switchAccount,
     renameAccount,
-    deleteAccount
+    deleteAccount,
+    resetAccountBalance,
+    fetchWithdrawals
   };
 };

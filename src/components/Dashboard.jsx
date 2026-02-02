@@ -1,8 +1,26 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useState, useEffect } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { formatDateShort, formatDateChart, formatCurrency, formatPercent, formatNumber } from '../utils/formatters'
 import QualityBadge from './ui/QualityBadge'
 
-function Dashboard({ trades, stats }) {
+function Dashboard({ trades, stats, accountId, fetchWithdrawals }) {
+  const [withdrawals, setWithdrawals] = useState([])
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
+
+  // Fetch withdrawals when accountId changes
+  useEffect(() => {
+    if (accountId && fetchWithdrawals) {
+      setWithdrawalsLoading(true)
+      fetchWithdrawals(accountId).then(result => {
+        if (result.success) {
+          setWithdrawals(result.data || [])
+        }
+        setWithdrawalsLoading(false)
+      })
+    } else {
+      setWithdrawals([])
+    }
+  }, [accountId, fetchWithdrawals])
   // Handle case when there are no trades yet
   if (!stats || trades.length === 0) {
     return (
@@ -29,7 +47,10 @@ function Dashboard({ trades, stats }) {
   }
 
   // Calculate additional stats for legacy compatibility
-  const growthPercentage = stats.roi
+  // Normalize ROI to handle floating point precision (treat values very close to zero as exactly zero)
+  const rawROI = stats.roi
+  const growthPercentage = Math.abs(rawROI) < 0.01 ? 0 : rawROI
+  const isNeutral = growthPercentage === 0
 
   // Get most recent 10 trades (trades are already sorted newest first)
   const recentTrades = trades.slice(0, 10)
@@ -50,12 +71,27 @@ function Dashboard({ trades, stats }) {
       dailyMap[dateKey].dailyPL += trade.profit_loss
     })
     
-    // Sort dates
-    const sortedDates = Object.keys(dailyMap).sort((a, b) => 
+    // Group withdrawals by date
+    const withdrawalsByDate = {}
+    withdrawals.forEach(withdrawal => {
+      const dateKey = withdrawal.withdrawal_date
+      if (!withdrawalsByDate[dateKey]) {
+        withdrawalsByDate[dateKey] = 0
+      }
+      withdrawalsByDate[dateKey] += parseFloat(withdrawal.amount || 0)
+    })
+    
+    // Get all unique dates (trades + withdrawals) and sort chronologically
+    const allDates = new Set([
+      ...Object.keys(dailyMap),
+      ...Object.keys(withdrawalsByDate)
+    ])
+    const sortedDates = Array.from(allDates).sort((a, b) => 
       new Date(a) - new Date(b)
     )
     
-    // Calculate running balance for each day
+    // Calculate running balance chronologically
+    // Start with original starting balance (no withdrawals subtracted yet)
     let runningBalance = stats.startingBalance
     
     const data = [{
@@ -65,14 +101,25 @@ function Dashboard({ trades, stats }) {
       fullDate: 'Starting Balance'
     }]
     
+    // Process each date in chronological order
     sortedDates.forEach(dateKey => {
-      runningBalance += dailyMap[dateKey].dailyPL
+      // Add trade P/L if there are trades on this date
+      if (dailyMap[dateKey]) {
+        runningBalance += dailyMap[dateKey].dailyPL
+      }
+      
+      // Subtract withdrawals if there are withdrawals on this date
+      if (withdrawalsByDate[dateKey]) {
+        runningBalance -= withdrawalsByDate[dateKey]
+      }
+      
       data.push({
         date: dateKey,
         balance: runningBalance,
         displayDate: formatDateChart(dateKey),
         fullDate: formatDateShort(dateKey),
-        dailyPL: dailyMap[dateKey].dailyPL
+        dailyPL: dailyMap[dateKey]?.dailyPL || 0,
+        withdrawal: withdrawalsByDate[dateKey] || 0
       })
     })
     
@@ -98,8 +145,12 @@ function Dashboard({ trades, stats }) {
           <div className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2">
             {formatCurrency(stats.currentBalance)}
           </div>
-          <div className={`text-xs md:text-sm ${growthPercentage >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-            {growthPercentage >= 0 ? '↑' : '↓'} {formatPercent(Math.abs(growthPercentage), 2)} from start
+          <div className={`text-xs md:text-sm ${
+            isNeutral ? 'text-gray-400' :
+            growthPercentage > 0 ? 'text-[#a4fc3c]' : 
+            'text-red-400'
+          }`}>
+            {isNeutral ? '' : growthPercentage > 0 ? '↑' : '↓'} {formatPercent(Math.abs(growthPercentage), 2)} from start
           </div>
         </div>
 
@@ -107,9 +158,11 @@ function Dashboard({ trades, stats }) {
         <div className="bg-[#1a1a1a] rounded-xl p-4 md:p-6 border border-gray-800">
           <div className="text-xs md:text-sm font-medium text-gray-400 mb-2">ROI</div>
           <div className={`text-2xl md:text-3xl lg:text-4xl font-bold mb-2 ${
-            growthPercentage >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'
+            isNeutral ? 'text-white' :
+            growthPercentage > 0 ? 'text-[#a4fc3c]' : 
+            'text-red-400'
           }`}>
-            {growthPercentage >= 0 ? '+' : ''}{formatPercent(growthPercentage, 2)}
+            {isNeutral ? '' : growthPercentage > 0 ? '+' : ''}{formatPercent(growthPercentage, 2)}
           </div>
           <div className="text-xs md:text-sm text-gray-300">
             {formatCurrency(stats.netPL, true)} P/L
@@ -134,21 +187,59 @@ function Dashboard({ trades, stats }) {
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-lg md:text-xl font-semibold text-white mb-1">Account Balance Growth</h3>
-              <div className={`text-xs md:text-sm mt-1 ${growthPercentage >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                {formatCurrency(stats.netPL, true)} ({growthPercentage >= 0 ? '+' : ''}{formatPercent(growthPercentage, 2)}) All Time
+              <div className={`text-xs md:text-sm mt-1 ${
+                isNeutral ? 'text-gray-400' :
+                growthPercentage > 0 ? 'text-[#a4fc3c]' : 
+                'text-red-400'
+              }`}>
+                {formatCurrency(stats.netPL, true)} ({isNeutral ? '' : growthPercentage > 0 ? '+' : ''}{formatPercent(growthPercentage, 2)}) All Time
               </div>
             </div>
           </div>
         </div>
         <div className="p-4 md:p-6">
           {(() => {
-            // Calculate Y-axis domain for better relative scaling
+            // Calculate Y-axis domain with nice rounded intervals
             const balances = balanceData.map(d => d.balance)
             const minBalance = Math.min(...balances)
             const maxBalance = Math.max(...balances)
             const range = maxBalance - minBalance
-            const padding = range > 0 ? range * 0.1 : Math.max(minBalance * 0.05, 100)
-            const yAxisDomain = [Math.max(0, minBalance - padding), maxBalance + padding]
+            
+            // Calculate nice interval for ticks (aims for 4-6 ticks)
+            const calculateNiceInterval = (valueRange, targetTicks = 5) => {
+              const rawInterval = valueRange / targetTicks
+              const magnitude = Math.pow(10, Math.floor(Math.log10(rawInterval)))
+              const normalized = rawInterval / magnitude
+              
+              let niceNormalized
+              if (normalized <= 1) niceNormalized = 1
+              else if (normalized <= 2) niceNormalized = 2
+              else if (normalized <= 5) niceNormalized = 5
+              else niceNormalized = 10
+              
+              return niceNormalized * magnitude
+            }
+            
+            // Add padding (10% of range, minimum $100)
+            const padding = Math.max(range * 0.1, 100)
+            let dataMin = Math.max(0, minBalance - padding)
+            let dataMax = maxBalance + padding
+            
+            // Calculate nice interval first
+            const niceInterval = calculateNiceInterval(dataMax - dataMin)
+            
+            // Round min down and max up to nearest nice interval
+            const niceMin = Math.floor(dataMin / niceInterval) * niceInterval
+            const niceMax = Math.ceil(dataMax / niceInterval) * niceInterval
+            
+            const yAxisDomain = [niceMin, niceMax]
+            
+            // Generate tick values
+            const ticks = []
+            for (let tick = niceMin; tick <= niceMax + 0.01; tick += niceInterval) {
+              // Round to avoid floating point precision issues
+              ticks.push(Math.round(tick * 100) / 100)
+            }
             
             return (
           <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
@@ -162,8 +253,9 @@ function Dashboard({ trades, stats }) {
                 <YAxis 
                   stroke="#666"
                   style={{ fontSize: '12px' }}
-                  tickFormatter={(value) => `$${value}`}
+                  tickFormatter={(value) => formatCurrency(value)}
                   domain={yAxisDomain}
+                  ticks={ticks}
                 />
                 <Tooltip 
                   content={({ active, payload }) => {
@@ -171,12 +263,22 @@ function Dashboard({ trades, stats }) {
                       const data = payload[0].payload
                       return (
                         <div className="bg-[#0a0a0a] border border-gray-800 rounded-lg p-3 shadow-lg">
-                          <p className="text-white font-semibold text-sm mb-1">
+                          <p className="text-white font-semibold text-sm mb-2">
                             {data.fullDate || data.displayDate}
                           </p>
-                          <p className="text-[#a4fc3c] font-bold text-lg">
+                          <p className="text-[#a4fc3c] font-bold text-lg mb-2">
                             {formatCurrency(data.balance)}
                           </p>
+                          {data.dailyPL !== 0 && (
+                            <p className={`text-xs ${data.dailyPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                              Daily P/L: {formatCurrency(data.dailyPL, true)}
+                            </p>
+                          )}
+                          {data.withdrawal > 0 && (
+                            <p className="text-xs text-orange-400 mt-1">
+                              Withdrawal: -{formatCurrency(data.withdrawal)}
+                            </p>
+                          )}
                         </div>
                       )
                     }
@@ -188,9 +290,44 @@ function Dashboard({ trades, stats }) {
                   dataKey="balance" 
                   stroke="#a4fc3c" 
                   strokeWidth={3}
-                  dot={{ fill: '#a4fc3c', r: 4 }}
+                  dot={(props) => {
+                    const { payload } = props
+                    // Show withdrawal markers with a different color
+                    if (payload.withdrawal > 0) {
+                      return (
+                        <circle
+                          cx={props.cx}
+                          cy={props.cy}
+                          r={6}
+                          fill="#ff6b35"
+                          stroke="#fff"
+                          strokeWidth={2}
+                        />
+                      )
+                    }
+                    return (
+                      <circle
+                        cx={props.cx}
+                        cy={props.cy}
+                        r={4}
+                        fill="#a4fc3c"
+                      />
+                    )
+                  }}
                   activeDot={{ r: 6 }}
                 />
+                {/* Add reference lines for withdrawals */}
+                {balanceData
+                  .filter(d => d.withdrawal > 0)
+                  .map((d, idx) => (
+                    <ReferenceLine
+                      key={`withdrawal-${idx}`}
+                      x={d.displayDate}
+                      stroke="#ff6b35"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
+                  ))}
               </LineChart>
             </ResponsiveContainer>
             )

@@ -3,6 +3,10 @@ import { formatCurrency } from '../utils/formatters'
 import { useAuth } from '../hooks/useAuth'
 import ErrorMessage from './ui/ErrorMessage'
 import LoadingSpinner from './ui/LoadingSpinner'
+import AccountActionsMenu from './ui/AccountActionsMenu'
+import EditAccountModal from './accounts/EditAccountModal'
+import DeleteAccountModal from './accounts/DeleteAccountModal'
+import ResetBalanceModal from './accounts/ResetBalanceModal'
 
 function Settings({ 
   account, 
@@ -12,6 +16,7 @@ function Settings({
   onSwitchAccount,
   onRenameAccount,
   onDeleteAccount,
+  onResetAccountBalance,
   onRefetchTrades,
   loading: accountLoading 
 }) {
@@ -26,13 +31,13 @@ function Settings({
   const [newAccountName, setNewAccountName] = useState('')
   const [newAccountBalance, setNewAccountBalance] = useState('')
   
-  // Edit account state
-  const [editingAccountId, setEditingAccountId] = useState(null)
-  const [editName, setEditName] = useState('')
-  const [editBalance, setEditBalance] = useState('')
-  
-  // Delete confirmation state
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+  // Modal state management
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editModalAccount, setEditModalAccount] = useState(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteModalAccount, setDeleteModalAccount] = useState(null)
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [resetModalAccount, setResetModalAccount] = useState(null)
 
   // Clear success message after timeout
   useEffect(() => {
@@ -108,82 +113,34 @@ function Settings({
     }
   }
 
-  // Start editing an account
-  const startEditing = (acc) => {
-    setEditingAccountId(acc.id)
-    setEditName(acc.name || '')
-    setEditBalance(acc.starting_balance?.toString() || '')
+  // Open edit modal
+  const handleEditAccount = (acc) => {
+    setEditModalAccount(acc)
+    setEditModalOpen(true)
     setError(null)
   }
 
-  // Cancel editing
-  const cancelEditing = () => {
-    setEditingAccountId(null)
-    setEditName('')
-    setEditBalance('')
-  }
-
-  // Save account edits
-  const handleSaveEdit = async (accountId) => {
-    if (!editName.trim()) {
-      setError('Account name is required')
-      return
-    }
-    
-    if (!editBalance || parseFloat(editBalance) < 0) {
-      setError('Starting balance must be a positive number')
-      return
-    }
-
-    setActionLoading(`edit-${accountId}`)
+  // Open delete modal
+  const handleDeleteAccountClick = (acc) => {
+    setDeleteModalAccount(acc)
+    setDeleteModalOpen(true)
     setError(null)
-
-    try {
-      // Update name
-      const nameResult = await onRenameAccount(accountId, editName.trim())
-      if (!nameResult.success) {
-        setError(nameResult.error || 'Failed to update account name')
-        setActionLoading(null)
-        return
-      }
-
-      // Update balance if it's the active account
-      if (account?.id === accountId) {
-        const balanceResult = await onUpdateAccount({ starting_balance: parseFloat(editBalance) })
-        if (!balanceResult.success) {
-          setError(balanceResult.error || 'Failed to update starting balance')
-          setActionLoading(null)
-          return
-        }
-      }
-
-      setSuccess('Account updated successfully!')
-      cancelEditing()
-    } catch (err) {
-      setError(err.message || 'An error occurred')
-    } finally {
-      setActionLoading(null)
-    }
   }
 
-  // Delete account
+  // Open reset balance modal
+  const handleResetBalanceClick = (acc) => {
+    setResetModalAccount(acc)
+    setResetModalOpen(true)
+    setError(null)
+  }
+
+  // Delete account handler (called from modal)
   const handleDeleteAccount = async (accountId) => {
-    setActionLoading(`delete-${accountId}`)
-    setError(null)
-
     try {
       const result = await onDeleteAccount(accountId)
-      
-      if (result.success) {
-        setSuccess('Account deleted successfully!')
-        setDeleteConfirmId(null)
-      } else {
-        setError(result.error || 'Failed to delete account')
-      }
+      return result
     } catch (err) {
-      setError(err.message || 'An error occurred')
-    } finally {
-      setActionLoading(null)
+      return { success: false, error: err.message || 'An error occurred' }
     }
   }
 
@@ -234,171 +191,79 @@ function Settings({
           <div className="space-y-3">
             {(allAccounts || []).map((acc) => {
               const isActive = acc.id === account?.id
-              const isEditing = editingAccountId === acc.id
-              const isDeleting = deleteConfirmId === acc.id
 
               return (
                 <div 
                   key={acc.id}
-                  className={`bg-[#0a0a0a] rounded-lg border ${
-                    isActive ? 'border-[#a4fc3c]' : 'border-gray-800'
-                  } overflow-hidden`}
+                  className={`bg-[#0a0a0a] rounded-lg border transition-all ${
+                    isActive 
+                      ? 'border-2 border-[#a4fc3c] bg-[#1a1a1a]/30' 
+                      : 'border-gray-800 hover:border-gray-700'
+                  }`}
                 >
-                  {/* Delete Confirmation */}
-                  {isDeleting ? (
-                    <div className="p-4">
-                      <p className="text-sm text-gray-300 mb-4">
-                        Are you sure you want to delete <span className="text-white font-semibold">{acc.name || 'Unnamed Account'}</span>? 
-                        This will also delete all trades associated with this account. This action cannot be undone.
-                      </p>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          disabled={actionLoading === `delete-${acc.id}`}
-                          className="px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-[#1a1a1a] transition-colors text-sm disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAccount(acc.id)}
-                          disabled={actionLoading === `delete-${acc.id}`}
-                          className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {actionLoading === `delete-${acc.id}` ? (
-                            <>
-                              <LoadingSpinner size="sm" />
-                              <span>Deleting...</span>
-                            </>
-                          ) : (
-                            'Delete Account'
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ) : isEditing ? (
-                    /* Edit Form */
-                    <div className="p-4">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">
-                            Account Name
-                          </label>
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            placeholder="Account name"
-                            className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c] transition-colors text-sm"
-                            disabled={actionLoading === `edit-${acc.id}`}
-                          />
+                  <div className="p-4 md:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      {/* Left: Account Info */}
+                      <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          isActive ? 'bg-[#a4fc3c]/20' : 'bg-[#1a1a1a]'
+                        }`}>
+                          <svg className={`w-6 h-6 ${isActive ? 'text-[#a4fc3c]' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
                         </div>
-                        {isActive && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">
-                              Starting Balance
-                            </label>
-                            <input
-                              type="text"
-                              value={editBalance}
-                              onChange={(e) => handleBalanceInput(e.target.value, setEditBalance)}
-                              placeholder="5000.00"
-                              className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#a4fc3c] focus:border-[#a4fc3c] transition-colors text-sm"
-                              disabled={actionLoading === `edit-${acc.id}`}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Starting balance can only be edited for the active account.
-                            </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-base md:text-lg font-semibold text-white truncate">
+                              {acc.name || 'Unnamed Account'}
+                            </h4>
+                            {isActive && (
+                              <span className="px-2 py-0.5 bg-[#a4fc3c]/20 text-[#a4fc3c] text-xs font-medium rounded flex-shrink-0">
+                                ACTIVE
+                              </span>
+                            )}
                           </div>
-                        )}
-                        <div className="flex gap-3">
+                          <div className="text-sm text-gray-400">
+                            Starting: <span className="text-gray-300 font-medium">{formatCurrency(acc.starting_balance || 0)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Right: Actions */}
+                      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                        {!isActive && (
                           <button
-                            onClick={cancelEditing}
-                            disabled={actionLoading === `edit-${acc.id}`}
-                            className="px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-[#1a1a1a] transition-colors text-sm disabled:opacity-50"
+                            onClick={() => handleSwitchAccount(acc.id)}
+                            disabled={actionLoading === `switch-${acc.id}`}
+                            className="px-4 py-2 bg-[#a4fc3c] text-black font-semibold rounded-lg hover:bg-[#8fdd2f] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
                           >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => handleSaveEdit(acc.id)}
-                            disabled={actionLoading === `edit-${acc.id}`}
-                            className="px-4 py-2 bg-[#a4fc3c] text-black font-semibold rounded-lg hover:bg-[#8fdd2f] transition-colors text-sm disabled:opacity-50 flex items-center gap-2"
-                          >
-                            {actionLoading === `edit-${acc.id}` ? (
+                            {actionLoading === `switch-${acc.id}` ? (
                               <>
                                 <LoadingSpinner size="sm" />
-                                <span>Saving...</span>
+                                <span>Switching...</span>
                               </>
                             ) : (
-                              'Save Changes'
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                <span>Switch To</span>
+                              </>
                             )}
                           </button>
-                        </div>
+                        )}
+                        <AccountActionsMenu
+                          account={acc}
+                          isActive={isActive}
+                          allAccounts={allAccounts}
+                          onEdit={handleEditAccount}
+                          onResetBalance={handleResetBalanceClick}
+                          onDelete={handleDeleteAccountClick}
+                          disabled={actionLoading !== null}
+                        />
                       </div>
                     </div>
-                  ) : (
-                    /* Normal View */
-                    <div className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-white font-semibold">
-                                {acc.name || 'Unnamed Account'}
-                              </span>
-                              {isActive && (
-                                <span className="px-2 py-0.5 bg-[#a4fc3c]/20 text-[#a4fc3c] text-xs font-medium rounded">
-                                  ACTIVE
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-400">
-                              Starting: {formatCurrency(acc.starting_balance || 0)}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          {!isActive && (
-                            <button
-                              onClick={() => handleSwitchAccount(acc.id)}
-                              disabled={actionLoading === `switch-${acc.id}`}
-                              className="px-3 py-1.5 bg-[#a4fc3c] text-black font-medium rounded-lg hover:bg-[#8fdd2f] transition-colors text-sm disabled:opacity-50 flex items-center gap-2"
-                            >
-                              {actionLoading === `switch-${acc.id}` ? (
-                                <>
-                                  <LoadingSpinner size="sm" />
-                                  <span>Switching...</span>
-                                </>
-                              ) : (
-                                'Switch To'
-                              )}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => startEditing(acc)}
-                            disabled={actionLoading !== null}
-                            className="px-3 py-1.5 border border-gray-700 text-gray-300 rounded-lg hover:bg-[#1a1a1a] hover:text-white transition-colors text-sm disabled:opacity-50"
-                          >
-                            Edit
-                          </button>
-                          {!isActive && allAccounts && allAccounts.length > 1 && (
-                            <button
-                              onClick={() => setDeleteConfirmId(acc.id)}
-                              disabled={actionLoading !== null}
-                              className="px-3 py-1.5 border border-red-900 text-red-400 rounded-lg hover:bg-red-900/20 transition-colors text-sm disabled:opacity-50"
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               )
             })}
@@ -476,6 +341,55 @@ function Settings({
           )}
         </div>
       </div>
+
+      {/* Account Modals */}
+      <EditAccountModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setEditModalAccount(null)
+        }}
+        account={editModalAccount}
+        isActive={editModalAccount?.id === account?.id}
+        onRenameAccount={onRenameAccount}
+        onUpdateAccount={onUpdateAccount}
+        onSuccess={(message) => {
+          setSuccess(message)
+          if (onRefetchTrades) {
+            onRefetchTrades()
+          }
+        }}
+      />
+
+      <DeleteAccountModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false)
+          setDeleteModalAccount(null)
+        }}
+        account={deleteModalAccount}
+        onDeleteAccount={handleDeleteAccount}
+        onSuccess={(message) => {
+          setSuccess(message)
+          if (onRefetchTrades) {
+            onRefetchTrades()
+          }
+        }}
+      />
+
+      <ResetBalanceModal
+        isOpen={resetModalOpen}
+        onClose={() => {
+          setResetModalOpen(false)
+          setResetModalAccount(null)
+        }}
+        account={resetModalAccount}
+        onResetAccountBalance={onResetAccountBalance}
+        onRefetchTrades={onRefetchTrades}
+        onSuccess={(message) => {
+          setSuccess(message)
+        }}
+      />
 
       {/* Display Preferences (Placeholder for future) */}
       <div className="bg-[#1a1a1a] rounded-xl border border-gray-800">

@@ -889,19 +889,27 @@ function Calendar({ trades, onUpdate, onDelete }) {
             )}
 
             {/* Month Comparison */}
-            {monthComparison.previous.trades > 0 && (
+            {(monthComparison.previous.trades > 0 || monthComparison.current.trades > 0) && (
               <div className="flex items-center gap-3 text-sm">
-                <span className="text-gray-400 font-medium">vs Previous Month:</span>
+                <span className="text-gray-400 font-medium">Trading P/L:</span>
                 <span className={`font-semibold ${monthComparison.current.pl >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
                   {formatCurrency(monthComparison.current.pl, true)}
                 </span>
-                <span className="text-gray-500">→</span>
-                <span className={`font-semibold ${monthComparison.previous.pl >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                  {formatCurrency(monthComparison.previous.pl, true)}
-                </span>
-                <span className={`font-semibold ${monthComparison.difference >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                  ({formatCurrency(monthComparison.difference, true)}, {formatPercent(monthComparison.percentChange, 1)})
-                </span>
+                <span className="text-gray-500 text-xs">(Current month)</span>
+                {/* Only show previous month comparison if both months have trades */}
+                {monthComparison.previous.trades > 0 && monthComparison.current.trades > 0 && (
+                  <>
+                    <span className="text-gray-500">vs</span>
+                    <span className={`font-semibold ${monthComparison.previous.pl >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                      {formatCurrency(monthComparison.previous.pl, true)}
+                    </span>
+                    <span className="text-gray-500 text-xs">(Previous)</span>
+                  </>
+                )}
+                {/* Show previous month info if current has no trades but previous did */}
+                {monthComparison.previous.trades > 0 && monthComparison.current.trades === 0 && (
+                  <span className="text-gray-500 text-xs">(No trades this month)</span>
+                )}
               </div>
             )}
             </>
