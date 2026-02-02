@@ -10,15 +10,50 @@ function PositionCalculator({ currentBalance }) {
   const calculatePosition = () => {
     if (!entryPrice || entryPrice <= 0) return null;
 
+    // Ensure currentBalance is a valid number
+    const balance = Number(currentBalance) || 0;
     const price = parseFloat(entryPrice);
     const stopPct = parseFloat(stopPercent) / 100;
 
     // Calculate effective buying power (with leverage if enabled)
-    const effectiveBuyingPower = useLeverage ? currentBalance * leverage : currentBalance;
+    const effectiveBuyingPower = useLeverage ? balance * leverage : balance;
 
-    // Calculate shares with effective buying power and round down to nearest 250
-    const maxShares = Math.floor(effectiveBuyingPower / price);
-    const shares = Math.floor(maxShares / 250) * 250;
+    // Calculate maximum shares that fit within balance (position value <= balance)
+    const maxSharesExact = effectiveBuyingPower / price;
+    const maxSharesFloor = Math.floor(maxSharesExact);
+    const exactPositionValue = maxSharesFloor * price;
+    
+    // Note: 250-share increment will be calculated from maxSharesFloor when needed
+    
+    // Check if exact max shares uses exactly 100% of balance (within 1 cent tolerance)
+    const difference = effectiveBuyingPower - exactPositionValue;
+    const uses100Percent = difference >= 0 && difference < 0.01;
+    
+    // Determine shares: use exact 100% if possible, otherwise use max 250-share increment
+    let shares;
+    if (uses100Percent) {
+      // Can use exactly 100% of balance - use the exact amount (any number of shares)
+      shares = maxSharesFloor;
+    } else {
+      // CANNOT use exactly 100% - MUST use 250-share increments
+      // Round down maxSharesFloor to the nearest 250-share increment
+      shares = Math.floor(maxSharesFloor / 250) * 250;
+      
+      // Verify this fits within balance (should always be true, but safety check)
+      if (shares * price > effectiveBuyingPower) {
+        // Reduce by 250 shares until it fits
+        shares = Math.max(0, shares - 250);
+      }
+    }
+    
+    // Final verification: ensure position value doesn't exceed balance
+    const finalPositionValue = shares * price;
+    if (finalPositionValue > effectiveBuyingPower + 0.01) {
+      // Reduce by 250 shares until it fits
+      while (shares > 0 && shares * price > effectiveBuyingPower) {
+        shares -= 250;
+      }
+    }
 
     // Calculate stop loss price (entry - X%)
     const stopLoss = price * (1 - stopPct);
@@ -57,14 +92,14 @@ function PositionCalculator({ currentBalance }) {
           <div className="space-y-2">
             <div>
               <p className="text-3xl md:text-4xl font-bold text-[#a4fc3c]">
-                {formatCurrency(currentBalance)}
+                {formatCurrency(Number(currentBalance) || 0)}
               </p>
               <p className="text-xs md:text-sm font-medium text-gray-400 mt-1">Actual Balance</p>
             </div>
             {useLeverage && (
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <p className="text-2xl md:text-3xl font-bold text-yellow-400">
-                  {formatCurrency(currentBalance * leverage)}
+                  {formatCurrency((Number(currentBalance) || 0) * leverage)}
                 </p>
                 <p className="text-xs md:text-sm font-medium text-yellow-400/70 mt-1">
                   Leveraged Buying Power ({leverage}x)
@@ -208,7 +243,7 @@ function PositionCalculator({ currentBalance }) {
                     <div className="flex justify-between items-center pt-2 border-t border-gray-800">
                       <span className="text-sm text-gray-400">Risk % of Account:</span>
                       <span className="text-sm font-semibold text-white">
-                        {formatPercent((position.totalRisk / currentBalance) * 100, 2)}
+                        {formatPercent((position.totalRisk / (Number(currentBalance) || 1)) * 100, 2)}
                       </span>
                     </div>
                   </div>
