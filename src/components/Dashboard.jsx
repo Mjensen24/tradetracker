@@ -458,44 +458,21 @@ function Dashboard({ trades, stats, accountId, fetchWithdrawals }) {
               </div>
             </div>
 
-            {/* Setup Quality Breakdown */}
-            <div>
-              <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Setup Quality Performance</div>
-              <div className="grid grid-cols-3 gap-2 md:gap-4">
-                {['A', 'B', 'C'].map(quality => {
-                  const setup = stats.setupStats?.find(s => s.quality === quality);
-                  if (!setup) return null;
-                  return (
-                    <div key={quality} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-lg font-bold text-white">{quality}</div>
-                        <div className={`text-sm font-semibold ${setup.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                          {formatCurrency(setup.totalPL, true)}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {formatPercent(setup.winRate, 1)} WR • {setup.trades} trades
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Strategy Breakdown */}
-            {stats.strategyStats && stats.strategyStats.length > 0 && (
+            {/* Stock Price Performance */}
+            {stats.priceRangeStats && stats.priceRangeStats.length > 0 && (
               <div>
-                <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Strategy Performance</div>
+                <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Stock Price Performance</div>
                 <div className="space-y-2">
-                  {stats.strategyStats.slice(0, 3).map((strategy, idx) => (
+                  {stats.priceRangeStats.map((range, idx) => (
                     <div key={idx} className="bg-[#0a0a0a] rounded-lg p-3 border border-gray-800">
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-semibold text-white">{strategy.name}</div>
-                          <div className="text-xs text-gray-400">{strategy.trades} trades</div>
+                          <div className="text-sm font-semibold text-white">{range.label}</div>
+                          <div className="text-xs text-gray-400">{range.trades} trades</div>
                         </div>
-                        <div className={`text-lg font-bold ${strategy.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
-                          {formatCurrency(strategy.totalPL, true)}
+                        <div className={`text-lg font-bold ${range.totalPL >= 0 ? 'text-[#a4fc3c]' : 'text-red-400'}`}>
+                          {formatCurrency(range.totalPL, true)}
                         </div>
                       </div>
                     </div>

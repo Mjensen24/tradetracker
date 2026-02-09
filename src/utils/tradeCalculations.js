@@ -179,6 +179,69 @@ const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
     ? tickerStats.reduce((worst, current) => current.totalPL < worst.totalPL ? current : worst)
     : { ticker: 'N/A', totalPL: 0, trades: 0 };
 
+  // Price Range Analysis - $2 Increment Categories
+  const calculatePriceRangeStats = (trades) => {
+    if (trades.length === 0) return [];
+    
+    // Get all entry prices
+    const entryPrices = trades.map(t => t.entry_price).filter(p => p != null && !isNaN(p));
+    if (entryPrices.length === 0) return [];
+    
+    const minPrice = Math.min(...entryPrices);
+    const maxPrice = Math.max(...entryPrices);
+    
+    // Generate $2 increment ranges
+    // Start from 0 and go up to maxPrice (rounded up to nearest even number) or $200, whichever is higher
+    const maxRange = Math.max(Math.ceil(maxPrice / 2) * 2, 200);
+    const ranges = [];
+    
+    // Create ranges in $2 increments
+    for (let i = 0; i < maxRange; i += 2) {
+      ranges.push({
+        min: i,
+        max: i + 2,
+        label: `$${i} - $${i + 2}`
+      });
+    }
+    
+    // Add a catch-all range for anything above the last range
+    if (maxPrice > maxRange) {
+      ranges.push({
+        min: maxRange,
+        max: Infinity,
+        label: `$${maxRange}+`
+      });
+    }
+    
+    // Calculate stats for each range
+    const priceRangeStats = ranges.map(range => {
+      // Filter trades in this range
+      const rangeTrades = trades.filter(t => {
+        const price = t.entry_price;
+        if (price == null || isNaN(price)) return false;
+        if (range.max === Infinity) {
+          return price >= range.min;
+        } else {
+          return price >= range.min && price < range.max;
+        }
+      });
+      
+      if (rangeTrades.length === 0) return null;
+      
+      return {
+        label: range.label,
+        minPrice: range.min,
+        maxPrice: range.max === Infinity ? null : range.max,
+        trades: rangeTrades.length,
+        totalPL: rangeTrades.reduce((sum, t) => sum + t.profit_loss, 0)
+      };
+    }).filter(range => range !== null); // Only show ranges with trades
+    
+    return priceRangeStats;
+  };
+  
+  const priceRangeStats = calculatePriceRangeStats(trades);
+
   return {
     netPL,
     grossWins,
@@ -210,7 +273,8 @@ const currentStreakDisplay = trades.length > 0 ? `${currentStreak}` : '0';
     startingBalance,
     currentBalance,
     roi,
-    recentTrades: [...trades].reverse().slice(0, 10) // Last 10 trades
+    recentTrades: [...trades].reverse().slice(0, 10), // Last 10 trades
+    priceRangeStats // Stock price range performance stats
   };
 };
 
